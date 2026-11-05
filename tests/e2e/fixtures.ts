@@ -33,7 +33,7 @@ export async function pairThroughControlPanel(page: Page, relay: Relay, relayUrl
   const code = (await page.locator(".code").textContent())!;
   expect(code).toMatch(/^\d{3}-\d{3}$/);
   expect(relay.pendingPairings()).toEqual([expect.objectContaining({ code })]);
-  relay.approve(code);
+  await relay.approve(code);
   await expect(page.getByText(`Connected to ${relayUrl}`)).toBeVisible({ timeout: 10_000 });
 }
 

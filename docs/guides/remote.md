@@ -123,6 +123,30 @@ const relay = createRelay({ port: 7777, dataFile: "./relay.json", onPairingReque
 await relay.listen();
 ```
 
+## Custom backends (accounts, limits, metering)
+
+The relay keeps tokens and devices in a `RelayBackend`. The default `LocalBackend` is a single tenant in a JSON file with no limits. To host a relay for many people, implement the interface yourself:
+
+```ts
+import { createRelay, type RelayBackend } from "@extension-use/relay";
+
+const backend: RelayBackend = {
+  authenticateController, authenticateDevice,             // token → tenant, grants
+  createDevice, listDevices, removeDevice, touchDevice,
+  createToken, listTokens, revokeToken,
+  checkCall(controller, action) { /* throw QUOTA_EXCEEDED / PLAN_REQUIRED with data.upgradeUrl */ },
+  checkNewDevice(tenant) { /* device limits */ },
+  recordUsage(event) { /* { kind: "call", tenant, action, ok, ms, … } — never payloads */ },
+};
+createRelay({ backend, pairingCodeDigits: 9, extraRoutes: myDashboard });
+```
+
+What the relay itself guarantees:
+- **Tenants are isolated:** devices, `default` and approvals are all scoped to the caller's tenant.
+- **Plan checks run before forwarding:** `checkCall` runs before a call reaches the browser, and refused calls aren't metered.
+- **Pairing codes resist guessing:** wrong-code attempts are limited per tenant, and `pairingCodeDigits` sets the code length.
+- **Other pages:** `extraRoutes` serves your own non-`/v1` pages from the same server.
+
 ## How the connection stays up
 
 - **Keep-alive:** the extension pings every 20 seconds. Chrome keeps a Manifest V3 service worker alive while WebSocket messages flow at least every 30 seconds.

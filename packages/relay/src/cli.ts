@@ -81,7 +81,7 @@ async function serve() {
         const answer = (await rl.question(`  "${p.name}" wants to pair. Does the extension show code ${p.code}? Approve? [y/N] `)).trim().toLowerCase();
         try {
           if (answer === "y" || answer === "yes") {
-            const { deviceId } = relay.approve(p.code);
+            const { deviceId } = await relay.approve(p.code);
             console.log(`  ✔ paired as ${deviceId}`);
           } else {
             relay.deny(p.code);

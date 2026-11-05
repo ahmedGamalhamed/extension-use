@@ -43,7 +43,7 @@ async function setup() {
   const start = await (await fetch(`${url}/v1/pairings`, { method: "POST", body: JSON.stringify({ name: "Test browser" }) })).json();
   expect(start.code).toMatch(/^\d{3}-\d{3}$/);
   expect(await (await fetch(`${url}/v1/pairings/${start.pairingId}`)).json()).toEqual({ status: "pending" });
-  const { deviceId } = relay.approve(start.code);
+  const { deviceId } = await relay.approve(start.code);
   const approved = await (await fetch(`${url}/v1/pairings/${start.pairingId}`)).json();
   expect(approved).toMatchObject({ status: "approved", deviceId, name: "Test browser" });
   // The device token is handed out once.

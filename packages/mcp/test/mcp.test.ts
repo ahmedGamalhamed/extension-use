@@ -44,7 +44,7 @@ async function setup(opts: { pair?: boolean; grants?: string[] } = {}) {
 
   const pairAndLink = async () => {
     const start = await (await fetch(`${url}/v1/pairings`, { method: "POST", body: "{}" })).json();
-    relay.approve(start.code);
+    await relay.approve(start.code);
     const { deviceToken } = await (await fetch(`${url}/v1/pairings/${start.pairingId}`)).json();
     const link = createRemoteLink({ relay: url, deviceToken, router, grants: ["*"], backoff: [50] });
     link.start();
