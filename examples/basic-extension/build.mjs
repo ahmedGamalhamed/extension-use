@@ -68,7 +68,8 @@ const manifest = {
   side_panel: { default_path: "sidepanel.html" },
   options_page: "control.html",
   action: { default_title: "Open Extension-use panel" },
-  content_scripts: [{ matches: ["<all_urls>"], js: ["content.js"], run_at: "document_idle" }],
+  // all_frames: iframes get their own runtime (target them with { frame: … }).
+  content_scripts: [{ matches: ["<all_urls>"], js: ["content.js"], run_at: "document_idle", all_frames: true, match_about_blank: true }],
   externally_connectable: { matches: [`${controllerOrigin}/*`] },
   ...permissions,
   // Asked for at runtime with permissions.request (from the side panel, after a click).

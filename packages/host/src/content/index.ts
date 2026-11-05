@@ -10,6 +10,7 @@ import type { ContentRequest } from "../background/router.js";
 import type { ContentContext, ContentGroup, ContentHandler } from "./context.js";
 import { domContent, pageContent, waitContent } from "./dom.js";
 import { overlayContent, pickerContent, showControlIndicator } from "./overlay.js";
+import { inputHandlers } from "./input.js";
 
 export type { ContentContext, ContentGroup, ContentHandler } from "./context.js";
 export { roleOf, nameOf, isVisible } from "./aria.js";
@@ -17,7 +18,7 @@ export { resolve as resolveLocator, findAll, describe, refFor, cssPath } from ".
 
 export const contentGroups = {
   page: pageContent,
-  dom: domContent,
+  dom: { name: "dom", handlers: { ...domContent.handlers, ...inputHandlers } } satisfies ContentGroup,
   wait: waitContent,
   overlay: overlayContent,
   picker: pickerContent,

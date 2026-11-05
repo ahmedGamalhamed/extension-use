@@ -57,6 +57,8 @@ export interface RouterEnv {
   resolveTab(target: Target | undefined, session: SessionInfo): Promise<ResolvedTab>;
   sendToContent(tab: ResolvedTab, frameId: number, req: ContentRequest): Promise<unknown>;
   cancelContent?(tab: ResolvedTab, frameId: number, callId: string): void;
+  /** Find a frame by URL in a tab (for target.frame = { urlMatch }). */
+  resolveFrame?(tab: ResolvedTab, frame: { urlMatch: string }): Promise<number>;
 }
 
 export interface AuditEntry {
@@ -202,7 +204,15 @@ export function createRouter(opts: RouterOptions) {
       }
 
       const timeoutMs = call.timeoutMs ?? def.schema.timeoutMs ?? opts.defaultTimeoutMs ?? 10_000;
-      const frameId = typeof call.target?.frame === "number" ? call.target.frame : 0;
+      const frameTarget = call.target?.frame;
+      const frameFor = async (tab: ResolvedTab): Promise<number> => {
+        if (typeof frameTarget === "number") return frameTarget;
+        if (frameTarget && typeof frameTarget === "object") {
+          if (!opts.env.resolveFrame) throw new ExtensionUseError("TARGET_NOT_FOUND", "This host can't look up frames by URL");
+          return opts.env.resolveFrame(tab, frameTarget);
+        }
+        return 0;
+      };
 
       let tabPromise: Promise<ResolvedTab> | undefined;
       const resolveTab = () => {
@@ -216,6 +226,7 @@ export function createRouter(opts: RouterOptions) {
 
       const sendContent = async (action: string, input: unknown, callId: string) => {
         const tab = await resolveTab();
+        const frameId = await frameFor(tab);
         const onAbort = () => opts.env.cancelContent?.(tab, frameId, callId);
         abort.signal.addEventListener("abort", onAbort, { once: true });
         try {

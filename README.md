@@ -106,11 +106,38 @@ Every action and its input is typed. Wrong input comes back as `INVALID_INPUT`, 
 
 ## Built-in actions
 
-`runtime.ping/describe` · `run.sequence` · `tabs.list/open/close/activate/navigate/reload/waitForLoad` · `capture.screenshot` (whole view or one element) · `page.info/scroll` · `dom.query/text/snapshot/click/hover/focus/type/fill/select/check/press/scrollTo` · `wait.for` · `overlay.highlight/clear/toast` · `picker.start/cancel` · `permissions.request/contains/getAll`
+43 actions. The full inputs and outputs are in the [action reference](docs/actions.md).
+
+| Group | Actions |
+|---|---|
+| Session | `runtime.ping`, `runtime.describe`, `run.sequence` |
+| Tabs and frames | `tabs.list/open/close/activate/navigate/reload/waitForLoad`, `frames.list`, `capture.screenshot` (whole view or one element) |
+| Reading | `page.info`, `dom.snapshot`, `dom.query`, `dom.text`, `wait.for` |
+| Mouse | `dom.click` (any button, double-click, modifiers, long press with `holdMs`), `dom.hover`, `dom.drag` (HTML5 drag and drop, or pointer-driven sliders and sortable lists), `dom.pointer` (low-level down/move/up) |
+| Keyboard and text | `dom.type`, `dom.fill`, `dom.press`, `dom.paste`, `dom.selectText`, `dom.focus`, `dom.blur` |
+| Forms | `dom.select`, `dom.check`, `dom.upload` (file inputs, including hidden ones, and drop zones) |
+| Scrolling | `page.scroll`, `dom.scroll` (inside lists and panels), `dom.scrollTo`, `dom.wheel` |
+| Showing things | `overlay.highlight/clear/toast`, `picker.start/cancel` |
+| Permissions | `permissions.request/contains/getAll` |
+
+Keys behave as they do in a browser:
+- Tab and Shift+Tab move focus in tab order.
+- Arrow keys, Home and End move the caret (Shift extends the selection), step through select menus and radio groups, or scroll the page.
+- Ctrl/Cmd+A selects all.
+- Backspace and Delete edit text, and Enter submits.
 
 The `permissions.*` actions run in the frame bridge, the extension page that holds your iframe. A click inside your web app gives that page a user gesture, so `permissions.request` works right after the person clicks. It returns `NEEDS_USER_GESTURE` otherwise. Only frame controllers get these actions.
 
-Locators: `ref` (from a snapshot), `role` + `name`, `testId`, `text`, `css`, plus `nth` and `exact`.
+Locators:
+- `ref` from a snapshot (the most reliable);
+- `role` + `name`, `testId`, `text`, or `css`;
+- `nth` and `exact` to narrow matches.
+
+CSS and test-id locators also search inside open shadow roots.
+
+Targets: `{ tab: "active" | tabId | { urlMatch } }`, plus `frame: frameId | { urlMatch }` for elements inside iframes. Iframes work same-origin and cross-origin, because the content runtime runs in every frame.
+
+All input is simulated (`isTrusted: false`). Most sites accept it, but some check, such as bot-protected pages and some payment forms.
 
 Guard rails on by default:
 - Origin checks on every transport, and grants per controller.

@@ -30,7 +30,8 @@ function handler(req, res) {
         "content-type": types[extname(file)] ?? "application/octet-stream",
         "cache-control": "no-store",
         // Only our own extension may frame the app.
-        "content-security-policy": `frame-ancestors 'self' chrome-extension://${id}`,
+        // Only our extension may frame the app. Test pages stay frameable (the iframe tests need that).
+        ...(rel.startsWith("fixtures") ? {} : { "content-security-policy": `frame-ancestors 'self' chrome-extension://${id}` }),
       });
       res.end(body);
     },

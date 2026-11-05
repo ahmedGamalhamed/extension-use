@@ -88,8 +88,8 @@ export type UrlPattern = string;
 export interface Target {
   /** Default: the active tab of the controller's window (or the last focused window). */
   tab?: "active" | number | { urlMatch: UrlPattern };
-  /** Default: the top frame. */
-  frame?: "top" | number;
+  /** Default: the top frame. A frameId (from frames.list), or the first frame whose URL matches. */
+  frame?: "top" | number | { urlMatch: UrlPattern };
 }
 
 /**

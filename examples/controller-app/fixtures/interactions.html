@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixture: interactions</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 16px; }
+      section { margin: 12px 0; padding: 8px; border: 1px solid #ccc; }
+      .item { display: inline-block; padding: 6px 10px; margin: 4px; background: #eef; cursor: grab; }
+      #bin, #dropzone { min-height: 40px; padding: 8px; border: 2px dashed #999; }
+      #track { position: relative; width: 320px; height: 20px; background: #ddd; }
+      #thumb { position: absolute; left: 0; top: 0; width: 20px; height: 20px; background: #66f; }
+      #list, #wheel-scroll { height: 100px; overflow: auto; border: 1px solid #999; }
+      #wheelbox { width: 200px; height: 60px; background: #fee; }
+      #ptr { width: 120px; height: 40px; background: #efe; }
+      .hidden-input { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>Interactions</h1>
+
+    <section aria-label="Drag and drop">
+      <span class="item" id="item-a" draggable="true">Item A</span>
+      <span class="item" id="item-b" draggable="true">Item B</span>
+      <div id="bin">Drop here</div>
+      <p id="bin-log"></p>
+      <div id="track"><div id="thumb" aria-label="Volume" role="slider"></div></div>
+      <p>Slider: <span id="slider-value">0</span></p>
+    </section>
+
+    <section aria-label="Files">
+      <label class="upload">Upload <input id="file" class="hidden-input" type="file" /></label>
+      <input id="files-multi" type="file" multiple />
+      <p id="file-result"></p>
+      <div id="dropzone">Drop files</div>
+      <p id="drop-result"></p>
+    </section>
+
+    <section aria-label="Scrolling">
+      <div id="list"></div>
+      <p>Loaded: <span id="loaded">0</span></p>
+      <div id="wheelbox">Zoom with the wheel</div>
+      <p>Wheel total: <span id="wheel-total">0</span></p>
+      <div id="wheel-scroll"><div style="height: 1000px">Tall content</div></div>
+    </section>
+
+    <section aria-label="Text">
+      <p id="para">The quick brown fox jumps over the lazy dog</p>
+      <input id="sel" value="hello world" />
+      <input id="paste-plain" />
+      <input id="paste-custom" />
+      <p id="paste-result"></p>
+      <input id="caret" value="abcdef" />
+      <input id="blur-me" />
+      <p id="blur-result"></p>
+    </section>
+
+    <section aria-label="Keys">
+      <input id="t1" placeholder="first" />
+      <input id="skip-disabled" disabled />
+      <input id="skip-negative" tabindex="-1" />
+      <input id="t2" placeholder="second" />
+      <select id="pick"><option value="one">One</option><option value="two">Two</option><option value="three">Three</option></select>
+      <p id="pick-log"></p>
+      <label><input type="radio" name="size" value="s" id="r-s" checked /> S</label>
+      <label><input type="radio" name="size" value="m" id="r-m" /> M</label>
+    </section>
+
+    <section aria-label="Pointer">
+      <button id="hold">Hold me</button>
+      <p id="hold-result"></p>
+      <div id="ptr"></div>
+      <p id="ptr-log"></p>
+    </section>
+
+    <section aria-label="Shadow DOM">
+      <shadow-widget id="shadow-host"></shadow-widget>
+      <p id="shadow-result"></p>
+    </section>
+
+    <section aria-label="Frames">
+      <iframe id="same" src="/fixtures/frame.html" width="300" height="80"></iframe>
+      <iframe id="cross" src="http://localhost:5173/fixtures/frame.html" width="300" height="80"></iframe>
+    </section>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      // HTML5 drag and drop.
+      for (const item of document.querySelectorAll(".item")) {
+        item.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/plain", item.id));
+      }
+      $("bin").addEventListener("dragover", (e) => e.preventDefault());
+      $("bin").addEventListener("drop", (e) => {
+        e.preventDefault();
+        $("bin-log").textContent = "dropped " + e.dataTransfer.getData("text/plain");
+      });
+
+      // Pointer-driven slider.
+      let dragging = false, startX = 0, value = 0;
+      $("thumb").addEventListener("mousedown", (e) => { dragging = true; startX = e.clientX - value; });
+      document.addEventListener("mousemove", (e) => {
+        if (!dragging || !(e.buttons & 1)) return;
+        value = Math.max(0, Math.min(300, e.clientX - startX));
+        $("thumb").style.left = value + "px";
+        $("slider-value").textContent = String(Math.round(value));
+      });
+      document.addEventListener("mouseup", () => (dragging = false));
+
+      // Files.
+      const describeFiles = async (files) => (await Promise.all([...files].map(async (f) => `${f.name}:${f.size}:${f.type}:${await f.text()}`))).join("|");
+      $("file").addEventListener("change", async (e) => ($("file-result").textContent = await describeFiles(e.target.files)));
+      $("files-multi").addEventListener("change", async (e) => ($("file-result").textContent = await describeFiles(e.target.files)));
+      $("dropzone").addEventListener("dragover", (e) => e.preventDefault());
+      $("dropzone").addEventListener("drop", async (e) => {
+        e.preventDefault();
+        $("drop-result").textContent = await describeFiles(e.dataTransfer.files);
+      });
+
+      // Infinite list.
+      const list = $("list");
+      const more = () => {
+        for (let i = 0; i < 20; i++) list.append(Object.assign(document.createElement("div"), { textContent: "Row " + list.children.length }));
+        $("loaded").textContent = String(list.children.length);
+      };
+      more();
+      list.addEventListener("scroll", () => { if (list.scrollTop + list.clientHeight >= list.scrollHeight - 5) more(); });
+
+      // Wheel that the page handles itself.
+      let total = 0;
+      $("wheelbox").addEventListener("wheel", (e) => { e.preventDefault(); total += e.deltaY; $("wheel-total").textContent = String(total); }, { passive: false });
+
+      // Paste handled by the page.
+      $("paste-custom").addEventListener("paste", (e) => {
+        e.preventDefault();
+        $("paste-result").textContent = e.clipboardData.getData("text/plain").toUpperCase();
+      });
+
+      $("blur-me").addEventListener("blur", () => ($("blur-result").textContent = "blurred"));
+      $("pick").addEventListener("change", () => ($("pick-log").textContent = "change " + $("pick").value));
+
+      // Long press.
+      let downAt = 0;
+      $("hold").addEventListener("pointerdown", () => (downAt = Date.now()));
+      $("hold").addEventListener("click", () => ($("hold-result").textContent = Date.now() - downAt >= 500 ? "long" : "short"));
+
+      // Low-level pointer.
+      const log = [];
+      for (const t of ["pointerdown", "pointermove", "pointerup"]) $("ptr").addEventListener(t, (e) => { log.push(t.slice(7) + ":" + e.buttons); $("ptr-log").textContent = log.join(","); });
+
+      // Shadow DOM component.
+      customElements.define("shadow-widget", class extends HTMLElement {
+        constructor() {
+          super();
+          const root = this.attachShadow({ mode: "open" });
+          root.innerHTML = '<button class="inner" data-testid="shadow-btn">Shadow button</button>';
+          root.querySelector("button").addEventListener("click", () => ($("shadow-result").textContent = "shadow clicked"));
+        }
+      });
+    </script>
+  </body>
+</html>

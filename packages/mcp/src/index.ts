@@ -164,7 +164,7 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
   };
 }
 
-const READ_ONLY = new Set(["runtime.ping", "tabs.list", "page.info", "dom.query", "dom.text", "dom.snapshot", "wait.for", "capture.screenshot", "permissions.contains", "permissions.getAll"]);
+const READ_ONLY = new Set(["runtime.ping", "tabs.list", "frames.list", "page.info", "dom.query", "dom.text", "dom.snapshot", "wait.for", "capture.screenshot", "permissions.contains", "permissions.getAll"]);
 
 function describeTool(a: Described) {
   const extra =

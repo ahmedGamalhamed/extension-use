@@ -78,7 +78,7 @@ describe("router + client", () => {
     const out = await ext.dom.click({ locator: { role: "button", name: "Save" } });
     expect(out).toMatchObject({ echoed: "dom.click" });
     const req = t.sendToContent.mock.calls[0]![2];
-    expect(req.input).toEqual({ locator: { role: "button", name: "Save" }, button: "left", clickCount: 1, modifiers: [] });
+    expect(req.input).toEqual({ locator: { role: "button", name: "Save" }, button: "left", clickCount: 1, modifiers: [], holdMs: 0 });
     expect(req.policy).toEqual({ sensitiveFields: "refuse" });
     expect(t.sendToContent.mock.calls[0]![0]).toMatchObject({ tabId: 7 });
   });

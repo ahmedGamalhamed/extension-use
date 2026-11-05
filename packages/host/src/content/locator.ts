@@ -51,6 +51,16 @@ function* walkAll(root: ParentNode): Generator<Element> {
   }
 }
 
+/**
+ * querySelectorAll that also looks inside open shadow roots. A selector still
+ * matches within one root at a time: it can't span a shadow boundary.
+ */
+function deepQueryAll(root: ParentNode, selector: string): Element[] {
+  const out = [...root.querySelectorAll(selector)];
+  for (const el of root.querySelectorAll("*")) if (el.shadowRoot) out.push(...deepQueryAll(el.shadowRoot, selector));
+  return out;
+}
+
 function candidates(locator: Locator, root: ParentNode): Element[] {
   if (locator.ref) {
     const el = elementForRef(locator.ref);
@@ -59,12 +69,12 @@ function candidates(locator: Locator, root: ParentNode): Element[] {
   let list: Element[];
   if (locator.css) {
     try {
-      list = [...root.querySelectorAll(locator.css)];
+      list = deepQueryAll(root, locator.css);
     } catch {
       throw new ExtensionUseError("INVALID_INPUT", `Invalid CSS selector: ${locator.css}`);
     }
   } else if (locator.testId) {
-    list = [...root.querySelectorAll(`[data-testid="${CSS.escape(locator.testId)}"], [data-test-id="${CSS.escape(locator.testId)}"]`)];
+    list = deepQueryAll(root, `[data-testid="${CSS.escape(locator.testId)}"], [data-test-id="${CSS.escape(locator.testId)}"]`);
   } else {
     list = [...walkAll(root)];
   }

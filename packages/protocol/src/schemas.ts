@@ -130,7 +130,7 @@ export const sequenceStepSchema = z.object({
   target: z
     .object({
       tab: z.union([z.literal("active"), z.number(), z.object({ urlMatch: z.string() })]).optional(),
-      frame: z.union([z.literal("top"), z.number()]).optional(),
+      frame: z.union([z.literal("top"), z.number(), z.object({ urlMatch: z.string() })]).optional(),
     })
     .optional(),
   timeoutMs: z.number().int().min(1).max(120_000).optional(),
@@ -228,6 +228,14 @@ export const coreActionSchemas = {
     { timeoutMs: 15_000 },
   ),
 
+  // frames ----------------------------------------------------------------
+  "frames.list": action(
+    "background",
+    "List the frames (iframes) in the target tab, to target one with { frame: frameId } or { frame: { urlMatch } }.",
+    empty,
+    z.object({ frames: z.array(z.object({ frameId: z.number(), parentFrameId: z.number(), url: z.string() })) }),
+  ),
+
   // page ------------------------------------------------------------------
   "page.info": action(
     "content",
@@ -303,6 +311,8 @@ export const coreActionSchemas = {
       button: z.enum(["left", "middle", "right"]).default("left"),
       clickCount: z.number().int().min(1).max(3).default(1),
       modifiers: z.array(z.enum(["Alt", "Control", "Meta", "Shift"])).default([]),
+      /** Hold the button down this long before releasing (long press). */
+      holdMs: z.number().int().min(0).max(10_000).default(0),
     }),
     refOut,
   ),
@@ -342,6 +352,102 @@ export const coreActionSchemas = {
       modifiers: z.array(z.enum(["Alt", "Control", "Meta", "Shift"])).default([]),
     }),
     empty,
+  ),
+  "dom.blur": action("content", "Take focus away from an element (or the focused element).", z.object({ locator: locatorSchema.optional() }), z.object({ ref: z.string().optional() })),
+  "dom.drag": action(
+    "content",
+    "Drag an element onto another element, or by an offset (sliders, sortable lists, HTML5 drag and drop).",
+    z
+      .object({
+        from: locatorSchema,
+        to: locatorSchema.optional(),
+        /** Move by this many pixels from the source's center instead of onto an element. */
+        offset: z.object({ x: z.number(), y: z.number() }).optional(),
+        /** Pointer moves between start and end. */
+        steps: z.number().int().min(1).max(100).default(10),
+      })
+      .refine((v) => Boolean(v.to) !== Boolean(v.offset), { message: "Give either to or offset" }),
+    z.object({ from: z.string(), to: z.string().optional(), html5: z.boolean() }),
+  ),
+  "dom.upload": action(
+    "content",
+    "Give files to an <input type=file>, or drop them on a drop zone. Content is base64 (or text).",
+    z.object({
+      locator: locatorSchema,
+      files: z
+        .array(
+          z
+            .object({
+              name: z.string().min(1).max(255),
+              mimeType: z.string().default("application/octet-stream"),
+              base64: z.string().optional(),
+              text: z.string().optional(),
+            })
+            .refine((f) => (f.base64 === undefined) !== (f.text === undefined), { message: "Give base64 or text" }),
+        )
+        .min(1)
+        .max(20),
+    }),
+    z.object({ ref: z.string(), files: z.number(), via: z.enum(["input", "drop"]) }),
+    { timeoutMs: 30_000 },
+  ),
+  "dom.scroll": action(
+    "content",
+    "Scroll inside a scrollable element (a list, a panel) by an amount, to a position, or to an edge.",
+    z.object({
+      locator: locatorSchema,
+      x: z.number().optional(),
+      y: z.number().optional(),
+      by: z.boolean().default(true),
+      to: z.enum(["top", "bottom", "left", "right"]).optional(),
+      behavior: scrollBehavior.default("instant"),
+    }),
+    z.object({ ref: z.string(), scrollTop: z.number(), scrollLeft: z.number(), scrollHeight: z.number(), scrollWidth: z.number(), clientHeight: z.number(), clientWidth: z.number() }),
+  ),
+  "dom.wheel": action(
+    "content",
+    "Turn the mouse wheel over an element (or the page). Fires wheel events, then scrolls if the page didn't cancel them.",
+    z.object({
+      locator: locatorSchema.optional(),
+      deltaX: z.number().default(0),
+      deltaY: z.number().default(100),
+      steps: z.number().int().min(1).max(50).default(1),
+    }),
+    z.object({ ref: z.string().optional(), scrolled: z.boolean(), scrollTop: z.number(), scrollLeft: z.number() }),
+  ),
+  "dom.selectText": action(
+    "content",
+    "Select text: a range in an input, part of an element's text, or all of it.",
+    z.object({
+      locator: locatorSchema,
+      /** Character offsets (inputs and textareas, or within the element's text). */
+      start: z.number().int().min(0).optional(),
+      end: z.number().int().min(0).optional(),
+      /** Select the first occurrence of this text inside the element. */
+      text: z.string().optional(),
+    }),
+    z.object({ ref: z.string(), selected: z.string() }),
+  ),
+  "dom.paste": action(
+    "content",
+    "Paste text into an element (or the focused element): fires a paste event, then inserts the text unless the page handled it.",
+    z.object({ locator: locatorSchema.optional(), text: z.string() }),
+    z.object({ ref: z.string(), handledByPage: z.boolean() }),
+  ),
+  "dom.pointer": action(
+    "content",
+    "Low-level pointer: press, move or release at an element (or viewport point). For custom gestures.",
+    z
+      .object({
+        type: z.enum(["down", "move", "up"]),
+        locator: locatorSchema.optional(),
+        /** Viewport coordinates, instead of an element's center. */
+        x: z.number().optional(),
+        y: z.number().optional(),
+        button: z.enum(["left", "middle", "right"]).default("left"),
+      })
+      .refine((v) => v.locator || (v.x !== undefined && v.y !== undefined), { message: "Give a locator or x and y" }),
+    z.object({ ref: z.string().optional(), x: z.number(), y: z.number() }),
   ),
   "dom.scrollTo": action(
     "content",

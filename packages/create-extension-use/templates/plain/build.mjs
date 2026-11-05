@@ -47,7 +47,7 @@ const manifest = {
   background: { service_worker: "background.js", type: "module" },
   side_panel: { default_path: "sidepanel.html" },
   action: { default_title: "Open {{name}}" },
-  content_scripts: [{ matches: permissions.host_permissions.length ? permissions.host_permissions : ["<all_urls>"], js: ["content.js"], run_at: "document_idle" }],
+  content_scripts: [{ matches: permissions.host_permissions.length ? permissions.host_permissions : ["<all_urls>"], js: ["content.js"], run_at: "document_idle", all_frames: true, match_about_blank: true }],
   externally_connectable: { matches: [`${new URL(CONTROLLER_URL).origin}/*`] },
   ...permissions,
 };

@@ -18,7 +18,7 @@ describe("createMockHost", () => {
 
     await expect(ext.dom.click({ locator: { text: "Save" } }, { target: { tab: 5 } })).resolves.toEqual({ ref: "e1" });
     expect(host.callsTo("dom.click")).toEqual([
-      { action: "dom.click", input: { locator: { text: "Save" }, button: "left", clickCount: 1, modifiers: [] }, target: { tab: 5 } },
+      { action: "dom.click", input: { locator: { text: "Save" }, button: "left", clickCount: 1, modifiers: [], holdMs: 0 }, target: { tab: 5 } },
     ]);
     expect((await ext.tabs.list()).tabs).toHaveLength(1);
     await expectErrorCode(ext.dom.fill({ locator: { css: "#x" }, value: "y" }), "UNKNOWN_ACTION");

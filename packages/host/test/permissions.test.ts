@@ -14,7 +14,7 @@ describe("permissionsFor", () => {
 
   it("covers every built-in group", () => {
     expect(permissionsFor(allBuiltinGroups, { sidePanel: true })).toEqual({
-      permissions: ["scripting", "sidePanel", "tabs"],
+      permissions: ["scripting", "sidePanel", "tabs", "webNavigation"],
       host_permissions: ["<all_urls>"],
     });
   });

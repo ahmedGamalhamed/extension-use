@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixture: frame</title>
+  </head>
+  <body style="font: 13px system-ui, sans-serif; margin: 6px">
+    <button id="frame-btn">Button in frame</button>
+    <input id="frame-input" aria-label="Frame input" />
+    <p id="frame-result">waiting</p>
+    <script>
+      document.getElementById("frame-btn").addEventListener("click", () => {
+        document.getElementById("frame-result").textContent = "clicked in " + location.host;
+      });
+    </script>
+  </body>
+</html>

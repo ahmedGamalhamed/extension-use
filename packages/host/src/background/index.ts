@@ -102,6 +102,16 @@ export function defineHost(options: HostOptions) {
       cancelContent(tab, frameId, callId) {
         chrome.tabs.sendMessage(tab.tabId, { [CONTENT_CANCEL]: callId }, { frameId }).catch(() => {});
       },
+      async resolveFrame(tab, frame) {
+        if (!chrome.webNavigation?.getAllFrames) {
+          throw new ExtensionUseError("NEEDS_PERMISSION", 'Finding frames by URL needs the "webNavigation" permission (the frames group)');
+        }
+        const frames = (await chrome.webNavigation.getAllFrames({ tabId: tab.tabId })) ?? [];
+        const match = frames.find((f) => matchPattern(frame.urlMatch, f.url));
+        if (!match) throw new ExtensionUseError("TARGET_NOT_FOUND", `No frame in the tab matches ${frame.urlMatch}`);
+        ctxAssertFrame(match.url);
+        return match.frameId;
+      },
     },
   });
 
@@ -323,6 +333,12 @@ export function defineHost(options: HostOptions) {
 
   return router;
 }
+
+/** Frames on blocked pages (an extension store inside an iframe) are refused too. */
+function ctxAssertFrame(url: string) {
+  if (matchAny(ALWAYS_BLOCKED_FRAMES, url)) throw new ExtensionUseError("BLOCKED_BY_POLICY", `Controllers may not act on ${url}`);
+}
+const ALWAYS_BLOCKED_FRAMES = ["chrome://*", "chrome-extension://*", "https://chromewebstore.google.com/*"];
 
 async function resolveTab(target: Target | undefined, session: SessionInfo): Promise<ResolvedTab> {
   const t = target?.tab ?? "active";

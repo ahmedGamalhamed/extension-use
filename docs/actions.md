@@ -14,8 +14,9 @@ A **target** picks the tab: `{ tab?: "active" | tabId | { urlMatch }, frame?: "t
 - **run**: [`run.sequence`](#runsequence)
 - **tabs**: [`tabs.list`](#tabslist), [`tabs.open`](#tabsopen), [`tabs.close`](#tabsclose), [`tabs.activate`](#tabsactivate), [`tabs.navigate`](#tabsnavigate), [`tabs.reload`](#tabsreload), [`tabs.waitForLoad`](#tabswaitforload)
 - **capture**: [`capture.screenshot`](#capturescreenshot)
+- **frames**: [`frames.list`](#frameslist)
 - **page**: [`page.info`](#pageinfo), [`page.scroll`](#pagescroll)
-- **dom**: [`dom.query`](#domquery), [`dom.text`](#domtext), [`dom.snapshot`](#domsnapshot), [`dom.click`](#domclick), [`dom.hover`](#domhover), [`dom.focus`](#domfocus), [`dom.type`](#domtype), [`dom.fill`](#domfill), [`dom.select`](#domselect), [`dom.check`](#domcheck), [`dom.press`](#dompress), [`dom.scrollTo`](#domscrollto)
+- **dom**: [`dom.query`](#domquery), [`dom.text`](#domtext), [`dom.snapshot`](#domsnapshot), [`dom.click`](#domclick), [`dom.hover`](#domhover), [`dom.focus`](#domfocus), [`dom.type`](#domtype), [`dom.fill`](#domfill), [`dom.select`](#domselect), [`dom.check`](#domcheck), [`dom.press`](#dompress), [`dom.blur`](#domblur), [`dom.drag`](#domdrag), [`dom.upload`](#domupload), [`dom.scroll`](#domscroll), [`dom.wheel`](#domwheel), [`dom.selectText`](#domselecttext), [`dom.paste`](#dompaste), [`dom.pointer`](#dompointer), [`dom.scrollTo`](#domscrollto)
 - **wait**: [`wait.for`](#waitfor)
 - **overlay**: [`overlay.highlight`](#overlayhighlight), [`overlay.clear`](#overlayclear), [`overlay.toast`](#overlaytoast)
 - **picker**: [`picker.start`](#pickerstart), [`picker.cancel`](#pickercancel)
@@ -72,7 +73,7 @@ Runs in extension background. Default timeout 120 s.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `steps` | `({ action: string; input?: unknown; target?: { tab?: "active" \| number \| { urlMatch: string }; frame?: "top" \| number }; timeoutMs?: number; onError?: "stop" \| "continue"; pauseMs?: number })[]` | yes |  |
+| `steps` | `({ action: string; input?: unknown; target?: { tab?: "active" \| number \| { urlMatch: string }; frame?: "top" \| number \| { urlMatch: string } }; timeoutMs?: number; onError?: "stop" \| "continue"; pauseMs?: number })[]` | yes |  |
 | `onError` | `"stop" \| "continue"` |  | default `"stop"` |
 
 **Output**
@@ -260,6 +261,24 @@ Runs in extension background. Default timeout 15 s.
 | `width` | `number` | yes |  |
 | `height` | `number` | yes |  |
 
+## frames
+
+### `frames.list`
+
+List the frames (iframes) in the target tab, to target one with { frame: frameId } or { frame: { urlMatch } }.
+
+Runs in extension background.
+
+**Input**
+
+_No fields._
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `frames` | `{ frameId: number; parentFrameId: number; url: string }[]` | yes |  |
+
 ## page
 
 ### `page.info`
@@ -388,6 +407,7 @@ Runs in the page (content runtime).
 | `button` | `"left" \| "middle" \| "right"` |  | default `"left"` |
 | `clickCount` | `number` |  | default `1`, min 1, max 3 |
 | `modifiers` | `("Alt" \| "Control" \| "Meta" \| "Shift")[]` |  | default `[]` |
+| `holdMs` | `number` |  | default `0`, min 0, max 10000 |
 
 **Output**
 
@@ -528,6 +548,187 @@ Runs in the page (content runtime).
 **Output**
 
 _No fields._
+
+### `dom.blur`
+
+Take focus away from an element (or the focused element).
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` |  |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` |  |  |
+
+### `dom.drag`
+
+Drag an element onto another element, or by an offset (sliders, sortable lists, HTML5 drag and drop).
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `from` | `{ ref?: string; role?: string; name?: string; text?: string; testId?: string; css?: string; nth?: number; exact?: boolean }` | yes |  |
+| `to` | `{ ref?: string; role?: string; name?: string; text?: string; testId?: string; css?: string; nth?: number; exact?: boolean }` |  |  |
+| `offset` | `{ x: number; y: number }` |  |  |
+| `steps` | `number` |  | default `10`, min 1, max 100 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `from` | `string` | yes |  |
+| `to` | `string` |  |  |
+| `html5` | `boolean` | yes |  |
+
+### `dom.upload`
+
+Give files to an <input type=file>, or drop them on a drop zone. Content is base64 (or text).
+
+Runs in the page (content runtime). Default timeout 30 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `files` | `{ name: string; mimeType?: string; base64?: string; text?: string }[]` | yes |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` | yes |  |
+| `files` | `number` | yes |  |
+| `via` | `"input" \| "drop"` | yes |  |
+
+### `dom.scroll`
+
+Scroll inside a scrollable element (a list, a panel) by an amount, to a position, or to an edge.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `x` | `number` |  |  |
+| `y` | `number` |  |  |
+| `by` | `boolean` |  | default `true` |
+| `to` | `"top" \| "bottom" \| "left" \| "right"` |  |  |
+| `behavior` | `"auto" \| "smooth" \| "instant"` |  | default `"instant"` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` | yes |  |
+| `scrollTop` | `number` | yes |  |
+| `scrollLeft` | `number` | yes |  |
+| `scrollHeight` | `number` | yes |  |
+| `scrollWidth` | `number` | yes |  |
+| `clientHeight` | `number` | yes |  |
+| `clientWidth` | `number` | yes |  |
+
+### `dom.wheel`
+
+Turn the mouse wheel over an element (or the page). Fires wheel events, then scrolls if the page didn't cancel them.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` |  |  |
+| `deltaX` | `number` |  | default `0` |
+| `deltaY` | `number` |  | default `100` |
+| `steps` | `number` |  | default `1`, min 1, max 50 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` |  |  |
+| `scrolled` | `boolean` | yes |  |
+| `scrollTop` | `number` | yes |  |
+| `scrollLeft` | `number` | yes |  |
+
+### `dom.selectText`
+
+Select text: a range in an input, part of an element's text, or all of it.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `start` | `number` |  | min 0, max 9007199254740991 |
+| `end` | `number` |  | min 0, max 9007199254740991 |
+| `text` | `string` |  |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` | yes |  |
+| `selected` | `string` | yes |  |
+
+### `dom.paste`
+
+Paste text into an element (or the focused element): fires a paste event, then inserts the text unless the page handled it.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` |  |  |
+| `text` | `string` | yes |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` | yes |  |
+| `handledByPage` | `boolean` | yes |  |
+
+### `dom.pointer`
+
+Low-level pointer: press, move or release at an element (or viewport point). For custom gestures.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `type` | `"down" \| "move" \| "up"` | yes |  |
+| `locator` | `Locator` |  |  |
+| `x` | `number` |  |  |
+| `y` | `number` |  |  |
+| `button` | `"left" \| "middle" \| "right"` |  | default `"left"` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` |  |  |
+| `x` | `number` | yes |  |
+| `y` | `number` | yes |  |
 
 ### `dom.scrollTo`
 

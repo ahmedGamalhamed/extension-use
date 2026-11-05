@@ -7,38 +7,38 @@ import { describe, findAll, refFor, resolve } from "./locator.js";
 
 /** Parsed input (defaults applied) of a built-in action. */
 export type In<K extends keyof typeof coreActionSchemas> = z.output<(typeof coreActionSchemas)[K]["input"]>;
-type Mods = ("Alt" | "Control" | "Meta" | "Shift")[];
+export type Mods = ("Alt" | "Control" | "Meta" | "Shift")[];
 
-const find = (locator: Locator, ctx: ContentContext, visible = true) => resolve(locator, { timeoutMs: ctx.timeoutMs, signal: ctx.signal, visible });
+export const find = (locator: Locator, ctx: ContentContext, visible = true) => resolve(locator, { timeoutMs: ctx.timeoutMs, signal: ctx.signal, visible });
 
 // ---------------------------------------------------------------------------
 // Synthetic input
 // ---------------------------------------------------------------------------
 
-function center(el: Element) {
+export function center(el: Element) {
   const r = el.getBoundingClientRect();
   return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
 }
 
-function modifierFlags(mods: Mods = []) {
+export function modifierFlags(mods: Mods = []) {
   return { altKey: mods.includes("Alt"), ctrlKey: mods.includes("Control"), metaKey: mods.includes("Meta"), shiftKey: mods.includes("Shift") };
 }
 
-function pointer(el: Element, type: string, init: PointerEventInit) {
+export function pointer(el: Element, type: string, init: PointerEventInit) {
   el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: "mouse", isPrimary: true, view: window, ...init }));
 }
 
-function mouse(el: Element, type: string, init: MouseEventInit) {
+export function mouse(el: Element, type: string, init: MouseEventInit) {
   return el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, ...init }));
 }
 
-function hoverSequence(el: Element) {
+export function hoverSequence(el: Element) {
   const pos = center(el);
   for (const t of ["pointerover", "pointerenter", "pointermove"]) pointer(el, t, { ...pos, bubbles: t !== "pointerenter" });
   for (const t of ["mouseover", "mouseenter", "mousemove"]) mouse(el, t, { ...pos, bubbles: t !== "mouseenter" });
 }
 
-async function waitEnabled(el: Element, ctx: ContentContext) {
+export async function waitEnabled(el: Element, ctx: ContentContext) {
   const deadline = Date.now() + ctx.timeoutMs;
   while (isDisabled(el)) {
     if (Date.now() >= deadline) throw new ExtensionUseError("TIMEOUT", "The element stayed disabled");
@@ -47,7 +47,7 @@ async function waitEnabled(el: Element, ctx: ContentContext) {
   }
 }
 
-function prepare(el: Element) {
+export function prepare(el: Element) {
   el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
 }
 
@@ -72,13 +72,27 @@ export function clickElement(el: Element, opts: { button?: "left" | "middle" | "
   if ((opts.clickCount ?? 1) === 2 && button === 0) mouse(el, "dblclick", { ...base, detail: 2 });
 }
 
-function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+/** Press, hold, release (and click), for long-press menus and hold-to-confirm buttons. */
+async function longPress(el: Element, opts: { button: "left" | "middle" | "right"; modifiers: Mods; holdMs: number }) {
+  const button = opts.button === "middle" ? 1 : opts.button === "right" ? 2 : 0;
+  const buttons = button === 0 ? 1 : button === 1 ? 4 : 2;
+  const base = { ...center(el), ...modifierFlags(opts.modifiers), button };
+  hoverSequence(el);
+  pointer(el, "pointerdown", { ...base, buttons });
+  if (mouse(el, "mousedown", { ...base, buttons, detail: 1 }) && el instanceof HTMLElement) el.focus({ preventScroll: true });
+  await new Promise((r) => setTimeout(r, opts.holdMs));
+  pointer(el, "pointerup", { ...base, buttons: 0 });
+  mouse(el, "mouseup", { ...base, buttons: 0, detail: 1 });
+  if (button === 0) mouse(el, "click", { ...base, buttons: 0, detail: 1 });
+}
+
+export function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
   // Use the prototype setter so frameworks that track `value` (React) notice the change.
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(el, value);
 }
 
-function isTextField(el: Element): el is HTMLInputElement | HTMLTextAreaElement {
+export function isTextField(el: Element): el is HTMLInputElement | HTMLTextAreaElement {
   if (el instanceof HTMLTextAreaElement) return true;
   if (!(el instanceof HTMLInputElement)) return false;
   return !["checkbox", "radio", "button", "submit", "reset", "file", "image", "range", "color", "hidden"].includes(el.type);
@@ -97,7 +111,7 @@ function keyboard(el: Element, type: "keydown" | "keypress" | "keyup", key: stri
   );
 }
 
-function insertText(el: Element, text: string) {
+export function insertText(el: Element, text: string) {
   if (isTextField(el)) {
     let start = el.value.length;
     let end = start;
@@ -123,35 +137,150 @@ function insertText(el: Element, text: string) {
   }
 }
 
-function guardSensitive(el: Element, ctx: ContentContext) {
+export function guardSensitive(el: Element, ctx: ContentContext) {
   if (ctx.policy.sensitiveFields === "refuse" && isSensitive(el)) {
     throw new ExtensionUseError("BLOCKED_BY_POLICY", "Typing into password and payment fields is not allowed for controllers");
   }
 }
 
-function focusTarget(): Element {
+export function focusTarget(): Element {
   let el: Element | null = document.activeElement;
   while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
   return el ?? document.body;
 }
 
-async function pressKey(el: Element, key: string, mods: Mods) {
+// Elements that take part in Tab order (open shadow roots included).
+const FOCUSABLE = 'a[href], area[href], button, input:not([type="hidden"]), select, textarea, iframe, summary, [tabindex], [contenteditable=""], [contenteditable="true"]';
+
+function* deepElements(root: ParentNode): Generator<Element> {
+  for (const el of root.querySelectorAll("*")) {
+    yield el;
+    if (el.shadowRoot) yield* deepElements(el.shadowRoot);
+  }
+}
+
+export function tabbables(): HTMLElement[] {
+  const list = [...deepElements(document)].filter(
+    (el): el is HTMLElement => el instanceof HTMLElement && el.matches(FOCUSABLE) && el.tabIndex >= 0 && !isDisabled(el) && isVisible(el),
+  );
+  // Positive tabindex first (in order), then the rest in document order.
+  const positive = list.filter((e) => e.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
+  return [...positive, ...list.filter((e) => e.tabIndex === 0)];
+}
+
+function moveFocus(from: Element, backwards: boolean) {
+  const order = tabbables();
+  if (!order.length) return;
+  const i = order.indexOf(from as HTMLElement);
+  const next = i < 0 ? order[backwards ? order.length - 1 : 0] : order[(i + (backwards ? -1 : 1) + order.length) % order.length];
+  next?.focus();
+  if (next && isTextField(next)) {
+    try {
+      next.select(); // tabbing into a field selects its text
+    } catch {
+      /* not selectable */
+    }
+  }
+}
+
+function moveCaret(el: HTMLInputElement | HTMLTextAreaElement, key: string, extend: boolean) {
+  let start: number;
+  let end: number;
+  try {
+    start = el.selectionStart ?? el.value.length;
+    end = el.selectionEnd ?? start;
+  } catch {
+    return; // email/number inputs have no selection API
+  }
+  const backward = el.selectionDirection === "backward";
+  // Collapsing an existing selection with an arrow jumps to its edge.
+  if (!extend && start !== end && (key === "ArrowLeft" || key === "ArrowRight")) {
+    const to = key === "ArrowLeft" ? start : end;
+    el.setSelectionRange(to, to);
+    return;
+  }
+  const anchor = extend ? (backward ? end : start) : start;
+  let focus = extend ? (backward ? start : end) : key === "ArrowLeft" || key === "Home" ? start : end;
+  const len = el.value.length;
+  const lineStart = el.value.lastIndexOf("\n", Math.max(0, focus - 1)) + 1;
+  const nextBreak = el.value.indexOf("\n", focus);
+  const lineEnd = nextBreak < 0 ? len : nextBreak;
+  if (key === "ArrowLeft") focus = Math.max(0, focus - 1);
+  else if (key === "ArrowRight") focus = Math.min(len, focus + 1);
+  else if (key === "Home") focus = el instanceof HTMLTextAreaElement ? (focus > 0 && el.value[focus - 1] === "\n" ? focus : lineStart) : 0;
+  else if (key === "End") focus = el instanceof HTMLTextAreaElement ? lineEnd : len;
+  if (extend) el.setSelectionRange(Math.min(anchor, focus), Math.max(anchor, focus), focus < anchor ? "backward" : "forward");
+  else el.setSelectionRange(focus, focus);
+}
+
+function stepSelect(el: HTMLSelectElement, delta: number) {
+  const options = [...el.options];
+  let i = el.selectedIndex;
+  do i += delta;
+  while (i >= 0 && i < options.length && options[i]!.disabled);
+  if (i < 0 || i >= options.length || i === el.selectedIndex) return;
+  el.selectedIndex = i;
+  el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function stepRadio(el: HTMLInputElement, delta: number) {
+  const scope = (el.form ?? el.getRootNode()) as ParentNode;
+  const group = [...scope.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${CSS.escape(el.name)}"]`)].filter((r) => !r.disabled);
+  const next = group[(group.indexOf(el) + delta + group.length) % group.length];
+  if (next && next !== el) {
+    next.focus();
+    clickElement(next);
+  }
+}
+
+const NAV_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]);
+
+/**
+ * Dispatch a key press and, unless the page cancelled keydown, apply what a
+ * browser would do: type, submit, delete, move focus (Tab), move the caret,
+ * step selects and radio groups, select all, or scroll the page.
+ */
+export async function pressKey(el: Element, key: string, mods: Mods) {
   const allowed = keyboard(el, "keydown", key, mods);
   const printable = key.length === 1;
-  if (allowed && (printable || key === "Enter")) keyboard(el, "keypress", key, mods);
+  const shortcut = mods.some((m) => m === "Control" || m === "Meta");
+  if (allowed && (printable || key === "Enter") && !shortcut) keyboard(el, "keypress", key, mods);
   if (allowed) {
-    if (printable && !mods.some((m) => m === "Control" || m === "Meta" || m === "Alt")) {
+    if (printable && shortcut && key.toLowerCase() === "a") {
+      if (isTextField(el)) el.select();
+      else document.getSelection()?.selectAllChildren((el as HTMLElement).isContentEditable ? el : document.body);
+    } else if (printable && !shortcut && !mods.includes("Alt")) {
       if (isTextField(el) || (el as HTMLElement).isContentEditable) insertText(el, key);
     } else if (key === "Enter") {
       if (el instanceof HTMLInputElement && el.form) el.form.requestSubmit();
       else if (el instanceof HTMLAnchorElement || el instanceof HTMLButtonElement) clickElement(el);
       else if (el instanceof HTMLTextAreaElement || (el as HTMLElement).isContentEditable) insertText(el, "\n");
-    } else if (key === "Backspace" && isTextField(el)) {
+    } else if ((key === "Backspace" || key === "Delete") && isTextField(el)) {
       const start = el.selectionStart ?? el.value.length;
       const end = el.selectionEnd ?? start;
-      const from = start === end ? Math.max(0, start - 1) : start;
-      setNativeValue(el, el.value.slice(0, from) + el.value.slice(end));
-      el.dispatchEvent(new InputEvent("input", { inputType: "deleteContentBackward", bubbles: true, composed: true }));
+      const [from, to] = start !== end ? [start, end] : key === "Backspace" ? [Math.max(0, start - 1), end] : [start, Math.min(el.value.length, end + 1)];
+      setNativeValue(el, el.value.slice(0, from) + el.value.slice(to));
+      try {
+        el.setSelectionRange(from, from);
+      } catch {
+        /* no selection API */
+      }
+      el.dispatchEvent(new InputEvent("input", { inputType: key === "Backspace" ? "deleteContentBackward" : "deleteContentForward", bubbles: true, composed: true }));
+    } else if (key === "Tab") {
+      moveFocus(el, mods.includes("Shift"));
+    } else if (NAV_KEYS.has(key)) {
+      if (isTextField(el) && (key === "ArrowLeft" || key === "ArrowRight" || key === "Home" || key === "End")) moveCaret(el, key, mods.includes("Shift"));
+      else if (el instanceof HTMLSelectElement && !el.multiple && (key === "ArrowUp" || key === "ArrowDown")) stepSelect(el, key === "ArrowDown" ? 1 : -1);
+      else if (el instanceof HTMLInputElement && el.type === "radio") stepRadio(el, key === "ArrowDown" || key === "ArrowRight" ? 1 : -1);
+      else if (!isTextField(el) && !(el as HTMLElement).isContentEditable) {
+        // Keyboard scrolling of the page.
+        if (key === "Home") window.scrollTo({ top: 0, behavior: "instant" });
+        else if (key === "End") window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+        else window.scrollBy({ left: key === "ArrowRight" ? 40 : key === "ArrowLeft" ? -40 : 0, top: key === "ArrowDown" ? 40 : key === "ArrowUp" ? -40 : 0, behavior: "instant" });
+      }
+    } else if ((key === "PageDown" || key === "PageUp") && !isTextField(el)) {
+      window.scrollBy({ top: (key === "PageDown" ? 1 : -1) * window.innerHeight * 0.9, behavior: "instant" });
     }
   }
   keyboard(el, "keyup", key, mods);
@@ -321,7 +450,8 @@ export const domContent: ContentGroup = {
       const el = await find(input.locator, ctx);
       await waitEnabled(el, ctx);
       prepare(el);
-      clickElement(el, input);
+      if (input.holdMs > 0) await longPress(el, input);
+      else clickElement(el, input);
       return { ref: refFor(el) };
     },
     "dom.hover": async (input: In<"dom.hover">, ctx) => {

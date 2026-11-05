@@ -261,6 +261,20 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return `data:${blob.type};base64,${btoa(binary)}`;
 }
 
+export const framesGroup: ActionGroup = {
+  name: "frames",
+  permissions: ["webNavigation"],
+  needsHostAccess: false,
+  actions: [
+    bg("frames.list", async (_input, ctx) => {
+      const { tabId } = await ctx.tab();
+      if (!chrome.webNavigation?.getAllFrames) throw new ExtensionUseError("NEEDS_PERMISSION", 'frames.list needs the "webNavigation" permission');
+      const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
+      return { frames: frames.map((f) => ({ frameId: f.frameId, parentFrameId: f.parentFrameId, url: f.url })) };
+    }),
+  ],
+};
+
 // Content groups: declared here, implemented in the content runtime.
 function contentGroup(name: string, actions: CoreActionName[]): ActionGroup {
   return { name, permissions: [], needsHostAccess: true, actions: actions.map(content) };
@@ -280,6 +294,14 @@ export const domGroup = contentGroup("dom", [
   "dom.check",
   "dom.press",
   "dom.scrollTo",
+  "dom.blur",
+  "dom.drag",
+  "dom.upload",
+  "dom.scroll",
+  "dom.wheel",
+  "dom.selectText",
+  "dom.paste",
+  "dom.pointer",
 ]);
 export const waitGroup = contentGroup("wait", ["wait.for"]);
 export const overlayGroup = contentGroup("overlay", ["overlay.highlight", "overlay.clear", "overlay.toast"]);
@@ -290,6 +312,7 @@ export const builtinGroups = {
   run: runGroup,
   tabs: tabsGroup,
   capture: captureGroup,
+  frames: framesGroup,
   page: pageGroup,
   dom: domGroup,
   wait: waitGroup,
