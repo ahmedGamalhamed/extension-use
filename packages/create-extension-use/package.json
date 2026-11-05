@@ -7,11 +7,22 @@
   "bin": {
     "create-extension-use": "./index.mjs"
   },
-  "files": ["index.mjs", "templates"],
+  "files": [
+    "index.mjs",
+    "templates"
+  ],
   "engines": {
     "node": ">=18.17"
   },
   "scripts": {
     "build": "node -e \"\""
-  }
+  },
+  "keywords": [
+    "browser-extension",
+    "chrome-extension",
+    "manifest-v3",
+    "side-panel",
+    "automation",
+    "extension-use"
+  ]
 }

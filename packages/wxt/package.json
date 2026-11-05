@@ -11,7 +11,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --external wxt"
   },
@@ -23,5 +25,13 @@
   },
   "devDependencies": {
     "wxt": "^0.21.5"
-  }
+  },
+  "keywords": [
+    "browser-extension",
+    "chrome-extension",
+    "manifest-v3",
+    "side-panel",
+    "automation",
+    "extension-use"
+  ]
 }

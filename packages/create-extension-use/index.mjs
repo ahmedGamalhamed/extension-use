@@ -8,7 +8,11 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 const SDK_VERSION = "^0.1.0";
-const TEMPLATES = { plain: "No framework, esbuild only", wxt: "WXT (Vite-based extension framework)" };
+const TEMPLATES = {
+  wxt: "WXT (Vite-based extension framework)",
+  plain: "TypeScript with esbuild, no framework",
+  vanilla: "Plain JavaScript, no build step",
+};
 const here = dirname(fileURLToPath(import.meta.url));
 
 const args = parseArgs(process.argv.slice(2));
@@ -16,7 +20,7 @@ if (args.help) {
   console.log(`Usage: npm create extension-use@latest [dir] -- [options]
 
 Options:
-  --template <plain|wxt>   Extension setup (default: ask, or plain with --yes)
+  --template <wxt|plain|vanilla>   Extension setup (default: ask, or plain with --yes)
   --url <url>              Where your web app runs (default http://localhost:5173/)
   --name <name>            Extension name (default: the folder name)
   --yes                    Use defaults, don't ask
@@ -32,7 +36,7 @@ const dir = resolve(args._[0] ?? (await ask("Project folder?", "my-extension")))
 const name = args.name ?? (await ask("Extension name?", basename(dir)));
 let template = args.template;
 if (!template) {
-  if (rl) console.log(Object.entries(TEMPLATES).map(([k, v]) => `  ${k.padEnd(6)} ${v}`).join("\n"));
+  if (rl) console.log(Object.entries(TEMPLATES).map(([k, v]) => `  ${k.padEnd(8)} ${v}`).join("\n"));
   template = await ask("Template?", "plain");
 }
 if (!(template in TEMPLATES)) fail(`Unknown template "${template}". Use one of: ${Object.keys(TEMPLATES).join(", ")}`);
@@ -57,9 +61,14 @@ const vars = {
   controllerHost: new URL(controllerUrl).hostname,
   port: new URL(controllerUrl).port || (controllerUrl.startsWith("https") ? "443" : "80"),
   extensionId,
+  key: der.toString("base64"),
   sdk: SDK_VERSION,
 };
 
+const skipFile = join(here, "templates", template, ".skip");
+// Shared files a template does not want (listed in its .skip file).
+const skip = new Set(existsSync(skipFile) ? (await readFile(skipFile, "utf8")).split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : []);
+skip.add(".skip");
 await copyTemplate(join(here, "templates/shared"), dir);
 await copyTemplate(join(here, "templates", template), dir);
 await writeFile(join(dir, "extension-key.json"), JSON.stringify({ comment: "Public key: pins the extension ID. Safe to commit.", key: der.toString("base64"), id: extensionId }, null, 2) + "\n");
@@ -76,20 +85,22 @@ Next:
   npm install
   npm run dev
 
-${template === "wxt" ? "WXT opens a browser with the extension loaded." : "Load ./dist/extension in chrome://extensions (Developer mode → Load unpacked)."}
+${{ wxt: "WXT opens a browser with the extension loaded.", plain: "Load ./dist/extension in chrome://extensions (Developer mode → Load unpacked).", vanilla: "Load ./extension in chrome://extensions (Developer mode → Load unpacked). Edit the .js files and reload; there is no build step." }[template]}
 Click the extension's toolbar icon to open the side panel; it shows your web app from ${controllerUrl}
 `);
 
 // ---------------------------------------------------------------------------
 
-async function copyTemplate(from, to) {
+async function copyTemplate(from, to, rel = "") {
   for (const entry of await readdir(from, { withFileTypes: true })) {
     const src = join(from, entry.name);
+    const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+    if (skip.has(relPath)) continue;
     const outName = entry.name === "_gitignore" ? ".gitignore" : entry.name;
     const dest = join(to, outName);
     if (entry.isDirectory()) {
       await mkdir(dest, { recursive: true });
-      await copyTemplate(src, dest);
+      await copyTemplate(src, dest, relPath);
     } else {
       const text = await readFile(src, "utf8");
       await writeFile(dest, text.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m)));

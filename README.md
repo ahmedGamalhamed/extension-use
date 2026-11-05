@@ -10,7 +10,7 @@ remote / MCP (planned)          ──relay────────────�
 
 The extension keeps the privileges. Controllers can only call the actions the extension enables, on the sites its policy allows. No remote code ever runs, so it stays within Chrome Web Store rules.
 
-Status: **0.1, phase 1 of [the design](docs/design.md) done.** Frame and page transports, a setup command and a WXT adapter all work end to end. The test kit, other framework adapters, the remote relay and MCP come next.
+Status: **0.1, phases 1–2 of [the design](docs/design.md).** It supports WXT and plain JS/TS, with or without a build step. Frame and page transports, the setup command and the test kit all work end to end. The remote relay and MCP come next.
 
 ## Start a new project
 
@@ -18,16 +18,25 @@ Status: **0.1, phase 1 of [the design](docs/design.md) done.** Frame and page tr
 npm create extension-use@latest my-extension
 ```
 
-It asks for a template (`plain` with esbuild, or `wxt`) and the URL of your web app. It then creates an extension whose side panel loads that app, with a pinned extension ID and a small demo controller.
+It asks for a template and the URL of your web app. It then creates an extension whose side panel loads that app, with a pinned extension ID and a small demo web app.
+
+| Template | For |
+|---|---|
+| `wxt` | [WXT](https://wxt.dev) projects. See the [WXT guide](docs/guides/wxt.md). |
+| `plain` | TypeScript bundled with esbuild, no framework. See the [plain JS/TS guide](docs/guides/plain.md). |
+| `vanilla` | Plain JavaScript with **no build step**: prebuilt bundles copied in by `npm install`. See the [plain JS/TS guide](docs/guides/plain.md). |
+
+Docs: [action reference](docs/actions.md) · [recipes](docs/recipes.md) · [testing](docs/guides/testing.md) · [design](docs/design.md)
 
 ## Packages
 
 | Package | What it does | Size (min+gzip) |
 |---|---|---|
 | `@extension-use/protocol` | Envelope types, error codes, zod schemas for every built-in action | (types only in clients) |
-| `@extension-use/host` | `/background` router and `defineHost()`, `/content` runtime with DOM actions, overlay and picker, `/frame` bridge for side panels and popups, `/permissions` manifest helper | content runtime ≈ 9.3 KB |
-| `@extension-use/client` | Typed client with `frame()`, `page()` and `memoryPair()` transports | core ≈ 2.1 KB + frame ≈ 0.8 KB |
+| `@extension-use/host` | `/background` router and `defineHost()`, `/content` runtime with DOM actions, overlay and picker, `/frame` bridge for side panels and popups, `/permissions` manifest helper, the `extension-use` CLI, and `/standalone/*` no-build bundles | content runtime ≈ 9.3 KB |
+| `@extension-use/client` | Typed client with `frame()`, `page()` and `memoryPair()` transports, plus a `/standalone` no-build bundle | core ≈ 2.1 KB + frame ≈ 0.8 KB |
 | `@extension-use/wxt` | WXT module: adds the permissions for your action groups and `externally_connectable` to the manifest | build time only |
+| `@extension-use/testing` | `createMockHost()` for unit tests; Playwright fixtures that load your real extension | dev only |
 | `create-extension-use` | `npm create extension-use`: plain and WXT templates | n/a |
 
 ## Use it

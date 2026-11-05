@@ -51,7 +51,8 @@ async function run<T>(label: string, fn: () => Promise<T>) {
 async function start(): Promise<Client> {
   statusEl.textContent = `Connecting (${mode})…`;
   const transport = mode === "frame" ? frame() : page({ extensionId });
-  const ext = await connect(transport, { name: "example-controller", version: "0.1.0" });
+  // `expose` lets @extension-use/testing drive this client in browser tests.
+  const ext = await connect(transport, { name: "example-controller", version: "0.1.0", expose: true });
   statusEl.textContent = `Connected via ${mode} to ${ext.host.name ?? ext.host.id} ${ext.host.version ?? ""} · ${ext.capabilities.length} actions`;
   statusEl.className = "ok";
 

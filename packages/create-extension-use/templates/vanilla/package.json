@@ -1,0 +1,15 @@
+{
+  "name": "{{packageName}}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "extension-use vendor --extension extension/vendor --web web/vendor",
+    "dev": "node serve.mjs",
+    "manifest": "extension-use manifest --write extension/manifest.json --origins {{controllerOrigin}}"
+  },
+  "dependencies": {
+    "@extension-use/client": "{{sdk}}",
+    "@extension-use/host": "{{sdk}}"
+  }
+}

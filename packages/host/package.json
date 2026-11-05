@@ -5,6 +5,9 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
+  "bin": {
+    "extension-use": "./dist/cli.js"
+  },
   "exports": {
     "./background": {
       "source": "./src/background/index.ts",
@@ -25,13 +28,15 @@
       "source": "./src/permissions.ts",
       "types": "./dist/permissions.d.ts",
       "default": "./dist/permissions.js"
-    }
+    },
+    "./standalone/*": "./dist/standalone/*",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/background/index.ts src/content/index.ts src/frame/index.ts src/permissions.ts --format esm --dts --clean"
+    "build": "tsup src/background/index.ts src/content/index.ts src/frame/index.ts src/permissions.ts src/cli.ts --format esm --dts --clean && node ../../scripts/standalone.mjs host"
   },
   "dependencies": {
     "@extension-use/protocol": "workspace:*",
@@ -39,5 +44,13 @@
   },
   "devDependencies": {
     "@extension-use/client": "workspace:*"
-  }
+  },
+  "keywords": [
+    "browser-extension",
+    "chrome-extension",
+    "manifest-v3",
+    "side-panel",
+    "automation",
+    "extension-use"
+  ]
 }

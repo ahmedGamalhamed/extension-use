@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "{{name}}",
+  "version": "0.1.0",
+  "key": "{{key}}",
+  "background": { "service_worker": "background.js", "type": "module" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "action": { "default_title": "Open {{name}}" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["vendor/extension-use-content.js"], "run_at": "document_idle" }],
+  "externally_connectable": { "matches": ["{{controllerOrigin}}/*"] },
+  "permissions": ["scripting", "sidePanel", "tabs"],
+  "host_permissions": ["<all_urls>"]
+}

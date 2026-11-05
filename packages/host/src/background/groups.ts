@@ -153,7 +153,7 @@ export const captureGroup: ActionGroup = {
       }
       const opts: chrome.extensionTypes.ImageDetails = { format: input.format };
       if (input.quality !== undefined) opts.quality = input.quality;
-      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, opts);
+      const dataUrl = await captureWithRetry(tab.windowId, opts, ctx.signal);
       const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
 
       if (!input.locator) {
@@ -184,6 +184,24 @@ export const captureGroup: ActionGroup = {
     }),
   ],
 };
+
+/**
+ * captureVisibleTab is limited to 2 calls a second, and sometimes fails with a
+ * transient "image readback failed". Retry those a couple of times.
+ */
+async function captureWithRetry(windowId: number, opts: chrome.extensionTypes.ImageDetails, signal: AbortSignal): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await chrome.tabs.captureVisibleTab(windowId, opts);
+    } catch (err) {
+      const message = String((err as Error)?.message ?? err);
+      const rateLimited = /MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND/i.test(message);
+      const transient = rateLimited || /readback failed|Failed to capture tab/i.test(message);
+      if (!transient || attempt >= 2 || signal.aborted) throw new ExtensionUseError("INTERNAL", message);
+      await new Promise((r) => setTimeout(r, rateLimited ? 550 : 150));
+    }
+  }
+}
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());

@@ -17,11 +17,21 @@
       "default": "./dist/schemas.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts src/schemas.ts --format esm --dts --clean"
   },
   "dependencies": {
     "zod": "^4.1.12"
-  }
+  },
+  "keywords": [
+    "browser-extension",
+    "chrome-extension",
+    "manifest-v3",
+    "side-panel",
+    "automation",
+    "extension-use"
+  ]
 }

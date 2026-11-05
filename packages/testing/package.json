@@ -1,0 +1,46 @@
+{
+  "name": "@extension-use/testing",
+  "version": "0.1.0",
+  "description": "Test your Extension-use controllers: an in-memory mock host and Playwright fixtures for the real extension",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./playwright": {
+      "source": "./src/playwright.ts",
+      "types": "./dist/playwright.d.ts",
+      "default": "./dist/playwright.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/playwright.ts --format esm --dts --clean --external @playwright/test"
+  },
+  "dependencies": {
+    "@extension-use/client": "workspace:*",
+    "@extension-use/host": "workspace:*",
+    "@extension-use/protocol": "workspace:*"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.45"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "browser-extension",
+    "chrome-extension",
+    "manifest-v3",
+    "side-panel",
+    "automation",
+    "extension-use"
+  ]
+}

@@ -84,7 +84,14 @@ export interface ConnectOptions {
   timeoutMs?: number;
   /** Log every envelope to the console. */
   debug?: boolean;
+  /**
+   * Put the connected client on `globalThis` (default name "__extensionUse") so
+   * tests (`@extension-use/testing/playwright`) can drive it. Use in dev builds.
+   */
+  expose?: boolean | string;
 }
+
+export const EXPOSE_KEY = "__extensionUse";
 
 // ---------------------------------------------------------------------------
 // connect()
@@ -294,7 +301,7 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
 
   // `ext.dom.click(...)` → callRaw("dom.click", ...)
   const namespaces = new Map<string, object>();
-  return new Proxy(base, {
+  const client = new Proxy(base, {
     get(target, prop, receiver) {
       if (typeof prop !== "string" || RESERVED.has(prop) || prop in target) return Reflect.get(target, prop, receiver);
       let ns = namespaces.get(prop);
@@ -313,4 +320,9 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
       return ns;
     },
   }) as Client<A, E>;
+
+  if (options.expose) {
+    (globalThis as Record<string, unknown>)[typeof options.expose === "string" ? options.expose : EXPOSE_KEY] = client;
+  }
+  return client;
 }

@@ -47,6 +47,8 @@ export interface ContentRequest {
   input: unknown;
   timeoutMs: number;
   policy: { sensitiveFields: "refuse" | "allow" };
+  /** The call's target, for hosts and mocks that need it. */
+  target?: Target;
 }
 
 export interface RouterEnv {
@@ -203,6 +205,7 @@ export function createRouter(opts: RouterOptions) {
             input,
             timeoutMs: Math.max(0, timeoutMs - (Date.now() - started) - 50),
             policy: { sensitiveFields: policy.sensitiveFields },
+            ...(call.target ? { target: call.target } : {}),
           });
         } finally {
           abort.signal.removeEventListener("abort", onAbort);
