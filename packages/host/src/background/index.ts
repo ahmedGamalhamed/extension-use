@@ -5,11 +5,15 @@
  */
 import { ExtensionUseError, matchAny, matchPattern, type Envelope, type Target } from "@extension-use/protocol";
 import type { ActionDef, ActionGroup, ResolvedTab, SessionInfo } from "../registry.js";
-import { CONTENT_MESSAGE, CONTENT_EVENT, CONTENT_CANCEL, FRAME_PORT, type BridgeHello } from "../wire.js";
+import { CONTENT_MESSAGE, CONTENT_EVENT, CONTENT_CANCEL, FRAME_PORT, UI_PORT, type BridgeHello, type UiCommand, type UiState } from "../wire.js";
 import { allBuiltinGroups } from "./groups.js";
+import { setupRemote, type RemoteConfig } from "./remote.js";
 import { createRouter, type AuditEntry, type Policy } from "./router.js";
 
 export { builtinGroups, allBuiltinGroups } from "./groups.js";
+export { createRemoteLink, type RemoteLink, type RemoteLinkOptions, type RemoteState } from "./remote-link.js";
+export type { RemoteConfig, RemoteUiState, PairingState } from "./remote.js";
+export type { UiCommand, UiState } from "../wire.js";
 export { createRouter, ALWAYS_BLOCKED, SDK_VERSION } from "./router.js";
 export type { Router, RouterEnv, RouterOptions, Channel, Connection, AuditEntry, Policy, ContentRequest } from "./router.js";
 export { defineAction } from "../registry.js";
@@ -36,7 +40,14 @@ export interface HostOptions {
     frame?: ControllerConfig;
     /** Websites that connect directly via `externally_connectable`. */
     page?: ControllerConfig;
+    /**
+     * Scripts, servers and agents that reach this browser through a relay the
+     * person paired with (in the control panel). Needs "storage" and "alarms".
+     */
+    remote?: RemoteConfig;
   };
+  /** Show control state on the toolbar icon (needs an `action` in the manifest). Default true. */
+  badge?: boolean;
   policy?: Policy;
   /**
    * Path of the bundled content script inside the extension (e.g. "content.js").
@@ -62,8 +73,12 @@ export function defineHost(options: HostOptions) {
     actions,
     ...(options.policy ? { policy: options.policy } : {}),
     ...(options.defaultTimeoutMs ? { defaultTimeoutMs: options.defaultTimeoutMs } : {}),
-    ...(options.onAudit ? { onAudit: options.onAudit } : {}),
     ...(options.debug ? { debug: options.debug } : {}),
+    onSessionsChange: () => refresh(),
+    onAudit: (entry) => {
+      options.onAudit?.(entry);
+      refresh();
+    },
     env: {
       resolveTab,
       async sendToContent(tab, frameId, req) {
@@ -165,6 +180,107 @@ export function defineHost(options: HostOptions) {
   });
   chrome.tabs.onActivated.addListener(({ tabId, windowId }) => router.emit("tab.activated", { tabId, windowId }, tabId));
   chrome.tabs.onRemoved.addListener((tabId) => router.emit("tab.removed", { tabId }, tabId));
+
+  // ---------------------------------------------------------------------------
+  // Remote control, the control panel, the kill switch and the toolbar badge
+  // ---------------------------------------------------------------------------
+
+  const log = (...a: unknown[]) => options.debug && console.debug("[extension-use]", ...a);
+  const remote = options.controllers.remote ? setupRemote(router, options.controllers.remote, () => refresh(), log) : undefined;
+  const uiPorts = new Set<chrome.runtime.Port>();
+  let refreshQueued = false;
+
+  // The kill switch survives service worker restarts.
+  const PAUSED_KEY = "extensionUse.paused";
+  chrome.storage?.local.get(PAUSED_KEY).then((r) => {
+    if (r[PAUSED_KEY]) router.pause();
+    refresh();
+  }, () => {});
+  const setPaused = (paused: boolean) => {
+    if (paused) router.pause();
+    else router.resume();
+    chrome.storage?.local.set({ [PAUSED_KEY]: paused }).catch(() => {});
+    refresh();
+  };
+
+  function uiState(): UiState {
+    return {
+      host: { id: options.id, ...(options.name ? { name: options.name } : {}), version: options.version ?? chrome.runtime.getManifest().version },
+      paused: router.paused,
+      sessions: router.sessions().map((s) => ({ id: s.id, transport: s.transport, origin: s.origin })),
+      audit: router.audit().slice(-30).reverse(),
+      ...(remote ? { remote: remote.state() } : {}),
+    };
+  }
+
+  function refresh() {
+    if (refreshQueued) return;
+    refreshQueued = true;
+    queueMicrotask(() => {
+      refreshQueued = false;
+      const state = uiState();
+      for (const p of uiPorts) safePost(p, state);
+      updateBadge(state);
+    });
+  }
+
+  function updateBadge(state: UiState) {
+    if (options.badge === false || !chrome.action?.setBadgeText) return;
+    const external = state.sessions.filter((s) => s.transport === "remote" || s.transport === "page");
+    const [text, color, title] = state.paused
+      ? ["II", "#6b7280", "Control paused"]
+      : external.length
+        ? ["ON", "#dc2626", `Controlled by ${[...new Set(external.map((s) => s.origin))].join(", ")}`]
+        : ["", "#6b7280", ""];
+    chrome.action.setBadgeText({ text }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ color }).catch(() => {});
+    if (title) chrome.action.setTitle({ title: `${options.name ?? options.id}: ${title}` }).catch(() => {});
+  }
+
+  // The control panel: extension pages only (content scripts and websites can't connect).
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== UI_PORT) return;
+    if (port.sender?.id !== chrome.runtime.id || !port.sender.url?.startsWith(chrome.runtime.getURL(""))) {
+      port.disconnect();
+      return;
+    }
+    uiPorts.add(port);
+    port.onDisconnect.addListener(() => uiPorts.delete(port));
+    port.onMessage.addListener(async (msg: UiCommand) => {
+      try {
+        switch (msg?.cmd) {
+          case "pause":
+            setPaused(true);
+            break;
+          case "resume":
+            setPaused(false);
+            break;
+          case "pair":
+            if (!remote) throw new Error("Remote control is not enabled in this extension");
+            await remote.pair(msg.relay, msg.name);
+            break;
+          case "cancel-pairing":
+            remote?.cancelPairing();
+            break;
+          case "unpair":
+            await remote?.unpair();
+            break;
+          case "reconnect":
+            remote?.reconnect();
+            break;
+        }
+        safePost(port, uiState());
+      } catch (e) {
+        safePost(port, { ...uiState(), error: String((e as Error)?.message ?? e) });
+      }
+    });
+    safePost(port, uiState());
+  });
+
+  // Optional keyboard shortcut: declare "extension-use-toggle-pause" under "commands" in the manifest.
+  chrome.commands?.onCommand.addListener((command) => {
+    if (command === "extension-use-toggle-pause") setPaused(!router.paused);
+  });
 
   return router;
 }

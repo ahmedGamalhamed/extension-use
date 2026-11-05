@@ -11,6 +11,12 @@ importers:
       '@changesets/cli':
         specifier: ^2.31.1
         version: 2.31.1(@types/node@24.19.2)
+      '@extension-use/client':
+        specifier: workspace:*
+        version: link:packages/client
+      '@extension-use/relay':
+        specifier: workspace:*
+        version: link:packages/relay
       '@extension-use/testing':
         specifier: workspace:*
         version: link:packages/testing
@@ -77,6 +83,25 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.6.7
+
+  packages/relay:
+    dependencies:
+      '@extension-use/client':
+        specifier: workspace:*
+        version: link:../client
+      '@extension-use/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      ws:
+        specifier: ^8.18.3
+        version: 8.22.1
+    devDependencies:
+      '@extension-use/host':
+        specifier: workspace:*
+        version: link:../host
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.2
 
   packages/testing:
     dependencies:
@@ -876,6 +901,9 @@ packages:
 
   '@types/node@24.19.2':
     resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@vitest/expect@3.2.7':
     resolution: {integrity: sha512-E8eBXaKibuvH2pSZErOjdVb5vF4PbKYcrnluBTYxEk1l/VhhwZg1kZQsdtjq+CsF5CFydf2Rdkz7jDHKSisi3w==}
@@ -1897,6 +1925,18 @@ packages:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
 
+  ws@8.22.1:
+    resolution: {integrity: sha512-oyL6OPYme/CmiFvNuGzeoxCJ4nOrZE2O1FwM9MWM1AsGri6nLXB2pg+lNA8aLeXMSav0J6eIVS1j6vUPzUtK9g==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   wxt@0.21.5:
     resolution: {integrity: sha512-naPKDK3LlU0M2LFJO3udw8ZEAB7DVQCGo26wllvSJQRVd3VaL9kiChjP8zWiVqm851uYkQ5pVI51hA5wjssO4g==}
     engines: {bun: '>=1.2.0', node: '>=22'}
@@ -2506,6 +2546,10 @@ snapshots:
   '@types/node@24.19.2':
     dependencies:
       undici-types: 7.24.6
+
+  '@types/ws@8.18.2':
+    dependencies:
+      '@types/node': 24.19.2
 
   '@vitest/expect@3.2.7':
     dependencies:
@@ -3511,6 +3555,8 @@ snapshots:
       ansi-styles: 4.3.0
       string-width: 4.2.3
       strip-ansi: 6.0.1
+
+  ws@8.22.1: {}
 
   wxt@0.21.5(esbuild@0.28.2)(rollup@4.67.5)(typescript@5.9.3)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)):
     dependencies:

@@ -8,9 +8,11 @@
  *   await ext.dom.click({ locator: { role: "button", name: "Save" } });
  */
 import {
+  ERROR_CODES,
   ExtensionUseError,
   PROTOCOL_VERSION,
   envelope,
+  type ErrorCode,
   matchAny,
   randomId,
   type ActionTypeMap,
@@ -56,6 +58,13 @@ export type ActionNamespaces<A extends ActionTypeMap> = {
   };
 };
 
+/** Event metadata: the event name (useful with patterns like "tab.*"), time and tab. */
+export interface EventMeta {
+  name: string;
+  ts: number;
+  tabId?: number;
+}
+
 export interface ClientBase<A extends ActionTypeMap, E extends EventTypeMap> {
   readonly host: HostInfo;
   readonly session: string;
@@ -66,8 +75,8 @@ export interface ClientBase<A extends ActionTypeMap, E extends EventTypeMap> {
   call<K extends keyof A & string>(action: K, input?: A[K]["input"], options?: CallOptions): Promise<A[K]["output"]>;
   /** Call any action by name, including host-defined ones not in the type map. */
   callRaw(action: string, input?: unknown, options?: CallOptions): Promise<unknown>;
-  on<K extends keyof E & string>(event: K, handler: (payload: E[K], meta: { tabId?: number; ts: number }) => void): () => void;
-  on(event: string, handler: (payload: unknown, meta: { tabId?: number; ts: number }) => void): () => void;
+  on<K extends keyof E & string>(event: K, handler: (payload: E[K], meta: EventMeta) => void): () => void;
+  on(event: string, handler: (payload: unknown, meta: EventMeta) => void): () => void;
   onDisconnect(handler: (reason?: string) => void): () => void;
   close(): void;
 }
@@ -99,6 +108,12 @@ export const EXPOSE_KEY = "__extensionUse";
 
 /** Client-side safety net when neither the caller nor the host bound a call. */
 const FALLBACK_TIMEOUT_MS = 150_000;
+
+/** Reasons like "DEVICE_OFFLINE: ..." or "UNSUPPORTED_VERSION: ..." keep their code. */
+function codeFromReason(reason?: string): ErrorCode {
+  const code = reason && /^([A-Z_]+):/.exec(reason)?.[1];
+  return code && (ERROR_CODES as readonly string[]).includes(code) ? (code as ErrorCode) : "NOT_CONNECTED";
+}
 const RESERVED = new Set(["host", "session", "capabilities", "connected", "has", "call", "callRaw", "on", "onDisconnect", "close", "then"]);
 
 export async function connect<A extends ActionTypeMap = CoreActions, E extends EventTypeMap = CoreEvents>(
@@ -107,7 +122,7 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
 ): Promise<Client<A, E>> {
   const log = (...a: unknown[]) => options.debug && console.debug("[extension-use/client]", ...a);
   const pending = new Map<string, { resolve(v: unknown): void; reject(e: unknown): void; timer: ReturnType<typeof setTimeout>; cleanup(): void }>();
-  const listeners = new Map<string, Set<(payload: unknown, meta: { tabId?: number; ts: number }) => void>>();
+  const listeners = new Map<string, Set<(payload: unknown, meta: EventMeta) => void>>();
   const disconnectHandlers = new Set<(reason?: string) => void>();
   let connected = false;
   let welcome: Extract<Envelope, { kind: "welcome" }> | undefined;
@@ -122,7 +137,7 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
   const failAll = (reason?: string) => {
     for (const p of pending.values()) {
       p.cleanup();
-      p.reject(new ExtensionUseError("NOT_CONNECTED", reason ?? "Disconnected from the extension"));
+      p.reject(new ExtensionUseError(codeFromReason(reason), reason ?? "Disconnected from the extension"));
     }
     pending.clear();
   };
@@ -152,7 +167,7 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
           if (matchAny([pattern], env.name)) {
             for (const h of set) {
               try {
-                h(env.payload, { ts: env.ts, ...(env.tabId !== undefined ? { tabId: env.tabId } : {}) });
+                h(env.payload, { name: env.name, ts: env.ts, ...(env.tabId !== undefined ? { tabId: env.tabId } : {}) });
               } catch (err) {
                 console.error("[extension-use/client] event handler failed", err);
               }
@@ -201,7 +216,7 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
     };
     onBye = (reason) => {
       finish();
-      reject(new ExtensionUseError(reason?.startsWith("UNSUPPORTED_VERSION") ? "UNSUPPORTED_VERSION" : "NOT_CONNECTED", reason ?? "The extension closed the connection"));
+      reject(new ExtensionUseError(codeFromReason(reason), reason ?? "The extension closed the connection"));
     };
     send(hello);
     if (transport.helloRetryMs) retry = setInterval(() => !welcome && send(hello), transport.helloRetryMs);
@@ -272,16 +287,16 @@ export async function connect<A extends ActionTypeMap = CoreActions, E extends E
     },
     call: ((action: string, input?: unknown, opts?: CallOptions) => callRaw(action, input, opts)) as ClientBase<A, E>["call"],
     callRaw,
-    on(event: string, handler: (payload: never, meta: { tabId?: number; ts: number }) => void) {
+    on(event: string, handler: (payload: never, meta: EventMeta) => void) {
       let set = listeners.get(event);
       if (!set) {
         set = new Set();
         listeners.set(event, set);
         send(envelope({ kind: "subscribe", events: [event] }));
       }
-      set.add(handler as (p: unknown, m: { tabId?: number; ts: number }) => void);
+      set.add(handler as (p: unknown, m: EventMeta) => void);
       return () => {
-        set!.delete(handler as (p: unknown, m: { tabId?: number; ts: number }) => void);
+        set!.delete(handler as (p: unknown, m: EventMeta) => void);
         if (set!.size === 0) {
           listeners.delete(event);
           if (connected) send(envelope({ kind: "unsubscribe", events: [event] }));

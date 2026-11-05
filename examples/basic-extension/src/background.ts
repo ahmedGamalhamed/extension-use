@@ -10,6 +10,8 @@ defineHost({
     frame: { origins: [CONTROLLER_ORIGIN] },
     // The same web app opened in a normal tab (externally_connectable).
     page: { origins: [CONTROLLER_ORIGIN], grants: ["runtime.*", "tabs.*", "page.*", "dom.query", "dom.text", "dom.snapshot", "overlay.*"] },
+    // Scripts and agents through a relay the person pairs with in control.html.
+    remote: {},
   },
   contentScript: "content.js",
   debug: true,

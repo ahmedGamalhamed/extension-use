@@ -9,3 +9,25 @@ export interface BridgeHello {
   origin: string;
   windowId?: number;
 }
+
+/** Port the control panel (extension page) opens to the background. */
+export const UI_PORT = "extension-use:ui";
+
+export type UiCommand =
+  | { cmd: "state" }
+  | { cmd: "pause" }
+  | { cmd: "resume" }
+  | { cmd: "pair"; relay: string; name: string }
+  | { cmd: "cancel-pairing" }
+  | { cmd: "unpair" }
+  | { cmd: "reconnect" };
+
+export interface UiState {
+  host: { id: string; name?: string; version?: string };
+  paused: boolean;
+  sessions: { id: string; transport: string; origin: string }[];
+  audit: { ts: number; transport: string; origin: string; action: string; ok: boolean; code?: string; ms: number }[];
+  /** Undefined when the host has no `controllers.remote`. */
+  remote?: import("./background/remote.js").RemoteUiState;
+  error?: string;
+}

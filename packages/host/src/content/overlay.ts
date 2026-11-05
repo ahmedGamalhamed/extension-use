@@ -20,7 +20,29 @@ const STYLE = `
 .toast.error { border-left-color: #f87171; }
 .banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 8px 14px; border-radius: 999px; box-shadow: 0 4px 16px rgb(0 0 0 / 30%); }
 .banner kbd { background: #374151; border-radius: 4px; padding: 0 5px; font: inherit; }
+.controlled { position: fixed; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 6px; background: #111827; color: #f9fafb; padding: 5px 10px; border-radius: 999px; font-size: 12px; box-shadow: 0 2px 10px rgb(0 0 0 / 30%); opacity: 0.92; }
+.controlled::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
 `;
+
+let controlledTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Show that something outside the page (a remote controller or a website) is
+ * acting on it. Stays up for a few seconds after the last action.
+ */
+export function showControlIndicator(text: string, ms = 4000) {
+  const root = overlayLayer();
+  let pill = root.querySelector<HTMLElement>(".controlled");
+  if (!pill) {
+    pill = document.createElement("div");
+    pill.className = "controlled";
+    pill.setAttribute("role", "status");
+    root.append(pill);
+  }
+  pill.textContent = text;
+  clearTimeout(controlledTimer);
+  controlledTimer = setTimeout(() => pill!.remove(), ms);
+}
 
 let layer: HTMLElement | undefined;
 

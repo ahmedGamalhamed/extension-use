@@ -9,7 +9,7 @@ import { CONTENT_CANCEL, CONTENT_EVENT, CONTENT_MESSAGE } from "../wire.js";
 import type { ContentRequest } from "../background/router.js";
 import type { ContentContext, ContentGroup, ContentHandler } from "./context.js";
 import { domContent, pageContent, waitContent } from "./dom.js";
-import { overlayContent, pickerContent } from "./overlay.js";
+import { overlayContent, pickerContent, showControlIndicator } from "./overlay.js";
 
 export type { ContentContext, ContentGroup, ContentHandler } from "./context.js";
 export { roleOf, nameOf, isVisible } from "./aria.js";
@@ -30,6 +30,8 @@ export interface ContentRuntimeOptions {
   groups?: ContentGroup[];
   /** Host-defined content actions. */
   handlers?: Record<string, ContentHandler>;
+  /** Show "Controlled by …" on the page during remote and website control. Default true. */
+  indicator?: boolean;
 }
 
 const FLAG = "__extensionUseContentRuntime";
@@ -64,6 +66,15 @@ export function startContentRuntime(options: ContentRuntimeOptions = {}) {
     if (!handler) {
       sendResponse({ ok: false, error: { code: "UNKNOWN_ACTION", message: `This page's runtime has no "${req.action}"` } });
       return false;
+    }
+
+    // Visible control: the person should always see when something else acts on the page.
+    if (req.controller && (req.controller.transport === "remote" || req.controller.transport === "page") && options.indicator !== false) {
+      try {
+        showControlIndicator(`Controlled by ${req.controller.origin.replace(/^relay:/, "remote: ")}`);
+      } catch {
+        /* the page may not allow our overlay; the toolbar badge still shows it */
+      }
     }
 
     const abort = new AbortController();

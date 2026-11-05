@@ -1,16 +1,16 @@
 # Extension-use
 
-Let a web app, a website or (soon) a remote script drive your browser extension through a fixed, typed and declarative set of actions: read the page, click, type, highlight, pick elements, manage tabs, take screenshots.
+Let a web app, a website, or a script, server or AI agent (through a relay) drive your browser extension through a fixed, typed and declarative set of actions: read the page, click, type, highlight, pick elements, manage tabs, take screenshots.
 
 ```
 web app (iframe in side panel)  ──postMessage──▶  frame bridge ─┐
 website (externally_connectable) ─────────────────────────────┤──▶ router (background) ──▶ content runtime (tab)
-remote / MCP (planned)          ──relay──────────────────────┘        grants · policy · audit
+script / agent (remote)         ──relay──────────────────────┘        grants · policy · audit
 ```
 
 The extension keeps the privileges. Controllers can only call the actions the extension enables, on the sites its policy allows. No remote code ever runs, so it stays within Chrome Web Store rules.
 
-Status: **0.1, phases 1–2 of [the design](docs/design.md).** It supports WXT and plain JS/TS, with or without a build step. Frame and page transports, the setup command and the test kit all work end to end. The remote relay and MCP come next.
+Status: **0.1, phases 1–3 of [the design](docs/design.md).** It supports WXT and plain JS/TS, with or without a build step. The frame, page and remote (relay) transports, the setup command and the test kit all work end to end. MCP comes next.
 
 ## Start a new project
 
@@ -26,18 +26,33 @@ It asks for a template and the URL of your web app. It then creates an extension
 | `plain` | TypeScript bundled with esbuild, no framework. See the [plain JS/TS guide](docs/guides/plain.md). |
 | `vanilla` | Plain JavaScript with **no build step**: prebuilt bundles copied in by `npm install`. See the [plain JS/TS guide](docs/guides/plain.md). |
 
-Docs: [action reference](docs/actions.md) · [recipes](docs/recipes.md) · [testing](docs/guides/testing.md) · [design](docs/design.md)
+Docs: [action reference](docs/actions.md) · [recipes](docs/recipes.md) · [remote control](docs/guides/remote.md) · [testing](docs/guides/testing.md) · [design](docs/design.md)
+
+## Drive your browser from a script
+
+```bash
+npx @extension-use/relay
+```
+
+Pair the browser from the extension's control panel. Then call it from any language:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -d '{"action":"dom.snapshot","input":{"format":"text"}}' http://127.0.0.1:7777/v1/devices/default/calls
+```
+
+It's local, needs no account, and the extension dials out. The page shows when it's being controlled, and one click pauses everything. See the [remote control guide](docs/guides/remote.md).
 
 ## Packages
 
 | Package | What it does | Size (min+gzip) |
 |---|---|---|
 | `@extension-use/protocol` | Envelope types, error codes, zod schemas for every built-in action | (types only in clients) |
-| `@extension-use/host` | `/background` router and `defineHost()`, `/content` runtime with DOM actions, overlay and picker, `/frame` bridge for side panels and popups, `/permissions` manifest helper, the `extension-use` CLI, and `/standalone/*` no-build bundles | content runtime ≈ 9.3 KB |
-| `@extension-use/client` | Typed client with `frame()`, `page()` and `memoryPair()` transports, plus a `/standalone` no-build bundle | core ≈ 2.1 KB + frame ≈ 0.8 KB |
+| `@extension-use/host` | `/background` router and `defineHost()`, `/content` runtime with DOM actions, overlay and picker, `/frame` bridge for side panels and popups, `/ui` control panel (pairing, kill switch, activity), `/permissions` manifest helper, the `extension-use` CLI, and `/standalone/*` no-build bundles | content runtime ≈ 9.3 KB |
+| `@extension-use/client` | Typed client with `frame()`, `page()`, `remote()` and `memoryPair()` transports, plus a `/standalone` no-build bundle | core ≈ 2.1 KB + frame ≈ 0.8 KB |
+| `@extension-use/relay` | The relay: `npx @extension-use/relay`, or `createRelay()` in your own server. Pairing, tokens, HTTP/SSE/WebSocket API | server |
 | `@extension-use/wxt` | WXT module: adds the permissions for your action groups and `externally_connectable` to the manifest | build time only |
 | `@extension-use/testing` | `createMockHost()` for unit tests; Playwright fixtures that load your real extension | dev only |
-| `create-extension-use` | `npm create extension-use`: plain and WXT templates | n/a |
+| `create-extension-use` | `npm create extension-use`: `wxt`, `plain` and `vanilla` templates | n/a |
 
 ## Use it
 

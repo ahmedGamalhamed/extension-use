@@ -49,6 +49,8 @@ export interface ContentRequest {
   policy: { sensitiveFields: "refuse" | "allow" };
   /** The call's target, for hosts and mocks that need it. */
   target?: Target;
+  /** Who is calling, so the page can show that it is being controlled. */
+  controller?: { transport: string; origin: string };
 }
 
 export interface RouterEnv {
@@ -78,6 +80,8 @@ export interface RouterOptions {
   auditSize?: number;
   onAudit?(entry: AuditEntry): void;
   debug?: boolean;
+  /** Called when a controller session opens or closes. */
+  onSessionsChange?(sessions: SessionInfo[]): void;
 }
 
 export interface Channel {
@@ -206,6 +210,7 @@ export function createRouter(opts: RouterOptions) {
             timeoutMs: Math.max(0, timeoutMs - (Date.now() - started) - 50),
             policy: { sensitiveFields: policy.sensitiveFields },
             ...(call.target ? { target: call.target } : {}),
+            controller: { transport: state.info.transport, origin: state.info.origin },
           });
         } finally {
           abort.signal.removeEventListener("abort", onAbort);
@@ -279,6 +284,7 @@ export function createRouter(opts: RouterOptions) {
             pending: new Map(),
           };
           sessions.set(state.info.id, state);
+          opts.onSessionsChange?.([...sessions.values()].map((s) => s.info));
           log("session opened", state.info);
           channel.send(
             envelope({
@@ -331,6 +337,7 @@ export function createRouter(opts: RouterOptions) {
   function closeSession(state: SessionState) {
     for (const a of state.pending.values()) a.abort(new ExtensionUseError("CANCELLED", "Session closed"));
     sessions.delete(state.info.id);
+    opts.onSessionsChange?.([...sessions.values()].map((s) => s.info));
     log("session closed", state.info.id);
   }
 

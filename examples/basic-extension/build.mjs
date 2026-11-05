@@ -18,6 +18,7 @@ await build({
   entryPoints: {
     background: join(here, "src/background.ts"),
     sidepanel: join(here, "src/sidepanel.ts"),
+    control: join(here, "src/control.ts"),
   },
   outdir: out,
   bundle: true,
@@ -43,7 +44,7 @@ const perms = await build({
   stdin: {
     contents: `import { allBuiltinGroups } from "@extension-use/host/background";
                import { permissionsFor } from "@extension-use/host/permissions";
-               export default permissionsFor(allBuiltinGroups, { sidePanel: true });`,
+               export default permissionsFor(allBuiltinGroups, { sidePanel: true, remote: true });`,
     resolveDir: here,
     loader: "ts",
   },
@@ -65,6 +66,7 @@ const manifest = {
   key,
   background: { service_worker: "background.js", type: "module" },
   side_panel: { default_path: "sidepanel.html" },
+  options_page: "control.html",
   action: { default_title: "Open Extension-use panel" },
   content_scripts: [{ matches: ["<all_urls>"], js: ["content.js"], run_at: "document_idle" }],
   externally_connectable: { matches: [`${controllerOrigin}/*`] },
@@ -74,5 +76,6 @@ const manifest = {
 };
 await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
 await cp(join(here, "sidepanel.html"), join(out, "sidepanel.html"));
+await cp(join(here, "control.html"), join(out, "control.html"));
 
 console.log(`Built example extension (${id}) → ${out}\n  controller: ${controllerUrl}\n  permissions: ${[...permissions.permissions, ...permissions.host_permissions].join(", ")}`);

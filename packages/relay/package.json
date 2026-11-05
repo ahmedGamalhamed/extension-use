@@ -1,0 +1,44 @@
+{
+  "name": "@extension-use/relay",
+  "version": "0.1.0",
+  "description": "Relay that lets scripts, servers and agents drive a paired Extension-use extension. Run locally with npx, or self-host.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "extension-use-relay": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@extension-use/client": "workspace:*",
+    "@extension-use/protocol": "workspace:*",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "@extension-use/host": "workspace:*"
+  },
+  "keywords": [
+    "browser-extension",
+    "chrome-extension",
+    "automation",
+    "relay",
+    "websocket",
+    "extension-use"
+  ]
+}

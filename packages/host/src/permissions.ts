@@ -25,6 +25,8 @@ export interface PermissionOptions {
   injectOnDemand?: boolean;
   /** Extension pages host a frame controller in the side panel (adds "sidePanel"). */
   sidePanel?: boolean;
+  /** Remote control through a relay (adds "storage" and "alarms"). */
+  remote?: boolean;
 }
 
 export function permissionsFor(groups: ActionGroup[], options: PermissionOptions = {}) {
@@ -36,6 +38,10 @@ export function permissionsFor(groups: ActionGroup[], options: PermissionOptions
   }
   if (hostAccess && options.injectOnDemand !== false) permissions.add("scripting");
   if (options.sidePanel) permissions.add("sidePanel");
+  if (options.remote) {
+    permissions.add("storage");
+    permissions.add("alarms");
+  }
   return {
     permissions: [...permissions].sort(),
     host_permissions: hostAccess ? (options.matches ?? ["<all_urls>"]) : [],
@@ -65,7 +71,12 @@ export function withExtensionUse<M extends ManifestFields>(manifest: M, options:
   if (unknown.length) throw new Error(`Unknown Extension-use groups: ${unknown.join(", ")}. Known: ${GROUP_NAMES.join(", ")}`);
   const perms = permissionsFor(
     names.map((n) => builtinGroups[n]),
-    { ...(options.matches ? { matches: options.matches } : {}), ...(options.injectOnDemand !== undefined ? { injectOnDemand: options.injectOnDemand } : {}), sidePanel: options.sidePanel ?? true },
+    {
+      ...(options.matches ? { matches: options.matches } : {}),
+      ...(options.injectOnDemand !== undefined ? { injectOnDemand: options.injectOnDemand } : {}),
+      ...(options.remote ? { remote: true } : {}),
+      sidePanel: options.sidePanel ?? true,
+    },
   );
   const out: M = { ...manifest };
   out.permissions = unique([...(manifest.permissions ?? []), ...perms.permissions]);

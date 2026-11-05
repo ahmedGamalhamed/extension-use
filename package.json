@@ -16,6 +16,8 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
+    "@extension-use/client": "workspace:*",
+    "@extension-use/relay": "workspace:*",
     "@extension-use/testing": "workspace:*",
     "@playwright/test": "^1.56.1",
     "@types/chrome": "^0.1.27",

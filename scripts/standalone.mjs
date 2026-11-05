@@ -14,6 +14,8 @@ const jobs = {
     { entryPoints: [join(root, "packages/host/src/background/index.ts")], outfile: join(root, "packages/host/dist/standalone/extension-use-background.js"), format: "esm" },
     // Classic script: list it in manifest content_scripts; it starts the runtime with every built-in group.
     { stdin: { contents: `import { startContentRuntime } from "./src/content/index.ts"; startContentRuntime();`, resolveDir: join(root, "packages/host"), loader: "ts" }, outfile: join(root, "packages/host/dist/standalone/extension-use-content.js"), format: "iife" },
+    // ESM: the control panel for an extension page.
+    { entryPoints: [join(root, "packages/host/src/ui/index.ts")], outfile: join(root, "packages/host/dist/standalone/extension-use-ui.js"), format: "esm" },
     // ESM: `import { mountFrameBridge } from "./vendor/extension-use-frame.js"` in the side panel page.
     { entryPoints: [join(root, "packages/host/src/frame/index.ts")], outfile: join(root, "packages/host/dist/standalone/extension-use-frame.js"), format: "esm" },
   ],
@@ -21,7 +23,7 @@ const jobs = {
     // ESM for the web app: connect, frame, page, ExtensionUseError in one file.
     {
       stdin: {
-        contents: `export * from "./src/index.ts"; export { frame, inExtensionFrame } from "./src/transports/frame.ts"; export { page } from "./src/transports/page.ts";`,
+        contents: `export * from "./src/index.ts"; export { frame, inExtensionFrame } from "./src/transports/frame.ts"; export { page } from "./src/transports/page.ts"; export { remote } from "./src/transports/remote.ts";`,
         resolveDir: join(root, "packages/client"),
         loader: "ts",
       },

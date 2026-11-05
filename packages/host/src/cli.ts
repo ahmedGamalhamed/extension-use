@@ -28,6 +28,7 @@ const HELP = `Usage:
     --origins <list>    Web app origins allowed to connect from a tab (externally_connectable)
     --matches <list>    Pages the content runtime runs on (default <all_urls>)
     --no-side-panel     Don't add the "sidePanel" permission
+    --remote            Remote control through a relay (adds "storage" and "alarms")
     --write <file>      Merge into manifest.json, or into the "manifest" key of package.json
 
   extension-use vendor [options]     Copy the no-build bundles into your project
@@ -40,6 +41,7 @@ function manifest() {
     ...(list(flag("origins")) ? { controllerOrigins: list(flag("origins"))! } : {}),
     ...(list(flag("matches")) ? { matches: list(flag("matches"))! } : {}),
     sidePanel: !argv.includes("--no-side-panel"),
+    remote: argv.includes("--remote"),
   };
   const file = flag("write");
   if (!file) {
@@ -62,7 +64,7 @@ function vendor() {
   const copied: string[] = [];
 
   mkdirSync(extDir, { recursive: true });
-  for (const f of ["extension-use-background.js", "extension-use-content.js", "extension-use-frame.js"]) {
+  for (const f of ["extension-use-background.js", "extension-use-content.js", "extension-use-frame.js", "extension-use-ui.js"]) {
     const src = join(hostDir, f);
     if (!existsSync(src)) throw new Error(`Missing ${src}. Is @extension-use/host built?`);
     copyFileSync(src, join(extDir, f));
