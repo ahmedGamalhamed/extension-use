@@ -92,6 +92,9 @@ describe("relay", () => {
 
     expect(ext.has("runtime.ping")).toBe(true);
     expect(ext.has("dom.click")).toBe(false);
+    // runtime.describe is narrowed too, so the token can't even list what it can't call.
+    const described = await ext.runtime.describe();
+    expect(described.actions.map((a) => a.name).sort()).toEqual(["dom.snapshot", "runtime.describe", "runtime.ping"]);
     await expect(ext.dom.click({ locator: { css: "a" } })).rejects.toMatchObject({ code: "NOT_GRANTED" });
 
     const r = await http("/v1/devices/default/calls", { action: "dom.click", input: { locator: { css: "a" } } }, created.token);

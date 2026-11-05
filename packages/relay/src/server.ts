@@ -117,32 +117,49 @@ export function createRelay(options: RelayOptions = {}) {
     throw new ExtensionUseError("DEVICE_OFFLINE", id === "default" ? "No paired browser is connected" : `Device "${id}" is not connected`);
   }
 
-  /** Narrow what a device offers to what this controller's token allows. */
-  function filterForController(env: Envelope, controller: Controller): Envelope {
-    if (env.kind !== "welcome" || controller.owner) return env;
-    return { ...env, capabilities: env.capabilities.filter((c) => matchAny(controller.grants, c.action)) };
-  }
-
-  function grantError(env: Envelope, controller: Controller): Envelope | undefined {
-    if (env.kind === "call" && !matchAny(controller.grants, env.action)) {
-      return envelope({ kind: "result", id: env.id, ok: false, error: { code: "NOT_GRANTED", message: `Token "${controller.name}" may not call "${env.action}"` } });
-    }
-    return undefined;
+  /**
+   * Per-session view of a token's grants: refuse calls outside them, and narrow
+   * what the device reports (the welcome's capabilities, runtime.describe results).
+   */
+  function controllerFilter(controller: Controller) {
+    const describeCalls = new Set<string>();
+    const allowed = (action: string) => controller.owner || matchAny(controller.grants, action);
+    return {
+      /** A denial to send back instead of forwarding, or undefined to forward. */
+      outgoing(env: Envelope): Envelope | undefined {
+        if (env.kind !== "call") return undefined;
+        if (!allowed(env.action)) {
+          return envelope({ kind: "result", id: env.id, ok: false, error: { code: "NOT_GRANTED", message: `Token "${controller.name}" may not call "${env.action}"` } });
+        }
+        if (env.action === "runtime.describe" && !controller.owner) describeCalls.add(env.id);
+        return undefined;
+      },
+      incoming(env: Envelope): Envelope {
+        if (controller.owner) return env;
+        if (env.kind === "welcome") return { ...env, capabilities: env.capabilities.filter((c) => allowed(c.action)) };
+        if (env.kind === "result" && describeCalls.delete(env.id) && env.ok) {
+          const out = env.output as { actions?: { name: string }[] };
+          if (Array.isArray(out?.actions)) return { ...env, output: { ...out, actions: out.actions.filter((a) => allowed(a.name)) } };
+        }
+        return env;
+      },
+    };
   }
 
   /** A client-side transport over a device session, used for the HTTP and SSE APIs. */
   function sessionTransport(device: DeviceLink, controller: Controller, label: string): Transport {
     let s: string | undefined;
+    const filter = controllerFilter(controller);
     return {
       kind: "relay",
       open(onMessage, onClose) {
         s = device.open(`relay:${controller.name}`, label, {
-          deliver: (env) => onMessage(filterForController(env, controller)),
+          deliver: (env) => onMessage(filter.incoming(env)),
           ended: (reason) => onClose(reason),
         });
       },
       send(env) {
-        const denied = grantError(env, controller);
+        const denied = filter.outgoing(env);
         if (denied) return void queueMicrotask(() => device.sessions.get(s!)?.deliver(denied));
         device.send({ t: "msg", s: s!, env });
       },
@@ -445,8 +462,9 @@ export function createRelay(options: RelayOptions = {}) {
       const e = ExtensionUseError.from(err);
       return fail(ws, e.code, e.message);
     }
+    const filter = controllerFilter(controller);
     const s = device.open(`relay:${controller.name}`, "websocket", {
-      deliver: (env) => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify(filterForController(env, controller))),
+      deliver: (env) => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify(filter.incoming(env))),
       ended: (reason) => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ t: "error", code: "DEVICE_OFFLINE", message: reason } satisfies DeviceFrame));
@@ -463,7 +481,7 @@ export function createRelay(options: RelayOptions = {}) {
         return;
       }
       if (!isEnvelope(env)) return;
-      const denied = grantError(env, controller);
+      const denied = filter.outgoing(env);
       if (denied) ws.send(JSON.stringify(denied));
       else device.send({ t: "msg", s, env });
     });

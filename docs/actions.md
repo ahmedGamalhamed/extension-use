@@ -10,7 +10,8 @@ A **target** picks the tab: `{ tab?: "active" | tabId | { urlMatch }, frame?: "t
 
 ## Contents
 
-- **runtime**: [`runtime.ping`](#runtimeping)
+- **runtime**: [`runtime.ping`](#runtimeping), [`runtime.describe`](#runtimedescribe)
+- **run**: [`run.sequence`](#runsequence)
 - **tabs**: [`tabs.list`](#tabslist), [`tabs.open`](#tabsopen), [`tabs.close`](#tabsclose), [`tabs.activate`](#tabsactivate), [`tabs.navigate`](#tabsnavigate), [`tabs.reload`](#tabsreload), [`tabs.waitForLoad`](#tabswaitforload)
 - **capture**: [`capture.screenshot`](#capturescreenshot)
 - **page**: [`page.info`](#pageinfo), [`page.scroll`](#pagescroll)
@@ -39,6 +40,48 @@ _No fields._
 |---|---|---|---|
 | `pong` | `true` | yes |  |
 | `ts` | `number` | yes |  |
+
+### `runtime.describe`
+
+List the actions this controller may call, with JSON schemas for their input and output. Includes host-defined actions.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `actions` | `string[]` |  |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `host` | `{ id: string; name?: string; version?: string }` | yes |  |
+| `actions` | `({ name: string; description: string; where: "background" \| "content" \| "bridge"; version: number; input: Record<string, unknown>; output: Record<string, unknown> })[]` | yes |  |
+
+## run
+
+### `run.sequence`
+
+Run several actions in order in one round trip. Steps are plain data: no conditions or expressions. Each step is checked like a separate call.
+
+Runs in extension background. Default timeout 120 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `steps` | `({ action: string; input?: unknown; target?: { tab?: "active" \| number \| { urlMatch: string }; frame?: "top" \| number }; timeoutMs?: number; onError?: "stop" \| "continue"; pauseMs?: number })[]` | yes |  |
+| `onError` | `"stop" \| "continue"` |  | default `"stop"` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `completed` | `number` | yes |  |
+| `ok` | `boolean` | yes |  |
+| `results` | `({ ok: true; action: string; output: unknown } \| { ok: false; action: string; error: { code: string; message: string } })[]` | yes |  |
 
 ## tabs
 
@@ -318,6 +361,8 @@ Runs in the page (content runtime).
 | `locator` | `Locator` |  |  |
 | `maxNodes` | `number` |  | default `1500`, min 1, max 20000 |
 | `interactiveOnly` | `boolean` |  | default `false` |
+| `viewportOnly` | `boolean` |  | default `false` |
+| `textMaxLength` | `number` |  | default `300`, min 10, max 5000 |
 | `format` | `"tree" \| "text" \| "both"` |  | default `"both"` |
 
 **Output**

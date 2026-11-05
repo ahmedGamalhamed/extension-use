@@ -20,7 +20,15 @@ export type UiCommand =
   | { cmd: "pair"; relay: string; name: string }
   | { cmd: "cancel-pairing" }
   | { cmd: "unpair" }
-  | { cmd: "reconnect" };
+  | { cmd: "reconnect" }
+  | { cmd: "describe" }
+  | { cmd: "call"; id: string; action: string; input: unknown; target?: import("@extension-use/protocol").Target };
+
+/** Replies to "describe" and "call" (state updates have no `kind`). */
+export type UiReply =
+  | { kind: "describe"; actions: { name: string; description: string; where: string; input: Record<string, unknown> }[] }
+  | { kind: "call-result"; id: string; ok: true; output: unknown; ms: number }
+  | { kind: "call-result"; id: string; ok: false; error: { code: string; message: string }; ms: number };
 
 export interface UiState {
   host: { id: string; name?: string; version?: string };

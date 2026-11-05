@@ -31,7 +31,7 @@ function setup(opts: { grants?: string[]; url?: string; env?: Partial<RouterEnv>
   const cancelContent = vi.fn();
   const router = createRouter({
     host: { id: "test-host", name: "Test", version: "1.2.3" },
-    actions: [...builtinGroups.dom.actions, ...builtinGroups.page.actions, ...builtinGroups.picker.actions, echo, slow],
+    actions: [...builtinGroups.runtime.actions, ...builtinGroups.run.actions, ...builtinGroups.dom.actions, ...builtinGroups.page.actions, ...builtinGroups.picker.actions, echo, slow],
     env: {
       resolveTab: async () => ({ tabId: 7, windowId: 1, url: opts.url ?? "https://example.com/" }),
       sendToContent,
@@ -177,5 +177,62 @@ describe("router + client", () => {
     await expect(p).rejects.toBeInstanceOf(ExtensionUseError);
     await expect(p).rejects.toMatchObject({ code: "NOT_CONNECTED" });
     expect(ext.connected).toBe(false);
+  });
+
+  it("runs sequences step by step, each with its own checks", async () => {
+    const t = setup({ grants: ["run.*", "test.*", "dom.click", "dom.fill"] });
+    const ext = await client(t);
+    const out = await ext.run.sequence({
+      steps: [
+        { action: "test.echo", input: { text: "a" } },
+        { action: "dom.click", input: { locator: { css: "#go" } }, target: { tab: 9 } },
+        { action: "dom.fill", input: { locator: { css: "#q" } } }, // missing value: INVALID_INPUT
+        { action: "test.echo", input: { text: "never" } },
+      ],
+    });
+    expect(out).toMatchObject({
+      completed: 2,
+      ok: false,
+      results: [
+        { ok: true, action: "test.echo", output: { text: "a" } },
+        { ok: true, action: "dom.click" },
+        { ok: false, action: "dom.fill", error: { code: "INVALID_INPUT" } },
+      ],
+    });
+    expect(out.results).toHaveLength(3);
+    // The step's own target reached the content runtime.
+    expect(t.sendToContent.mock.calls[0]![2]).toMatchObject({ action: "dom.click", target: { tab: 9 } });
+
+    const cont = await ext.run.sequence({
+      onError: "continue",
+      steps: [{ action: "page.info" }, { action: "test.echo", input: { text: "b" } }, { action: "run.sequence", input: { steps: [{ action: "test.echo" }] } }],
+    });
+    expect(cont.results.map((r) => (r.ok ? "ok" : r.error.code))).toEqual(["NOT_GRANTED", "ok", "INVALID_INPUT"]);
+
+    // Every step is audited like a separate call.
+    expect(t.router.audit().filter((e) => e.action === "test.echo")).toHaveLength(2);
+  });
+
+  it("stops a sequence when the kill switch is pressed", async () => {
+    const t = setup();
+    const ext = await client(t);
+    const p = ext.run.sequence({ steps: [{ action: "test.slow" }, { action: "test.echo", input: { text: "x" } }] });
+    await new Promise((r) => setTimeout(r, 30));
+    t.router.pause();
+    await expect(p).rejects.toMatchObject({ code: "BLOCKED_BY_POLICY" });
+  });
+
+  it("describes the actions a controller may call, with JSON schemas", async () => {
+    const t = setup({ grants: ["runtime.*", "test.*", "dom.click"] });
+    const ext = await client(t);
+    const d = await ext.runtime.describe();
+    expect(d.host).toMatchObject({ id: "test-host", name: "Test" });
+    expect(d.actions.map((a) => a.name).sort()).toEqual(["dom.click", "runtime.describe", "runtime.ping", "test.echo", "test.slow"]);
+    const click = d.actions.find((a) => a.name === "dom.click")!;
+    expect(click).toMatchObject({ where: "content", version: 1, description: "Click an element." });
+    expect(click.input).toMatchObject({ type: "object", required: ["locator"], properties: { button: { default: "left" } } });
+    const echoSchema = d.actions.find((a) => a.name === "test.echo")!;
+    expect(echoSchema.input).toMatchObject({ properties: { text: { type: "string" } } });
+    expect((await ext.runtime.describe({ actions: ["test.echo"] })).actions).toHaveLength(1);
   });
 });

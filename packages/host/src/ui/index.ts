@@ -8,11 +8,13 @@
  *   import { mountControlPanel } from "@extension-use/host/ui";
  *   mountControlPanel(document.getElementById("panel")!);
  */
-import { UI_PORT, type UiCommand, type UiState } from "../wire.js";
+import { UI_PORT, type UiCommand, type UiReply, type UiState } from "../wire.js";
 
 export interface ControlPanelOptions {
   /** Default device name offered when pairing. */
   deviceName?: string;
+  /** Show an action playground (run any action on a tab from a form). For development. Default false. */
+  playground?: boolean;
 }
 
 const CSS = `
@@ -36,6 +38,10 @@ li { padding: 3px 0; border-top: 1px solid var(--border); display: flex; justify
 li:first-child { border-top: 0; }
 .err { color: var(--danger); }
 .pill { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
+select, textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
+textarea { font: 12px/1.4 ui-monospace, monospace; min-height: 90px; resize: vertical; }
+pre { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-monospace, monospace; max-height: 320px; overflow: auto; margin: 6px 0 0; }
+label { display: block; color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
 `;
 
 export function mountControlPanel(container: HTMLElement, options: ControlPanelOptions = {}) {
@@ -44,6 +50,7 @@ export function mountControlPanel(container: HTMLElement, options: ControlPanelO
   style.textContent = CSS;
   const view = document.createElement("div");
   root.append(style, view);
+  let playground: ReturnType<typeof buildPlayground> | undefined;
 
   let port: chrome.runtime.Port | undefined;
   let state: UiState | undefined;
@@ -54,10 +61,12 @@ export function mountControlPanel(container: HTMLElement, options: ControlPanelO
 
   function connectPort() {
     port = chrome.runtime.connect({ name: UI_PORT });
-    port.onMessage.addListener((s: UiState) => {
-      state = s;
+    port.onMessage.addListener((msg: UiState | UiReply) => {
+      if ("kind" in msg) return playground?.onReply(msg);
+      state = msg;
       render();
     });
+    if (playground) send({ cmd: "describe" });
     // The service worker may restart; reconnect so the panel stays live.
     port.onDisconnect.addListener(() => setTimeout(connectPort, 500));
   }
@@ -161,6 +170,76 @@ export function mountControlPanel(container: HTMLElement, options: ControlPanelO
     view.replaceChildren(...parts);
   }
 
+  function buildPlayground() {
+    let actions: Extract<UiReply, { kind: "describe" }>["actions"] = [];
+    const select = el("select", { onchange: () => fill() } as Partial<HTMLSelectElement>);
+    select.setAttribute("aria-label", "Action");
+    const input = el("textarea", { value: "{}", spellcheck: false } as Partial<HTMLTextAreaElement>);
+    input.setAttribute("aria-label", "Input (JSON)");
+    const target = el("input", { placeholder: "empty = active tab, or a URL pattern like https://example.com/*" } as Partial<HTMLInputElement>);
+    target.setAttribute("aria-label", "Target tab");
+    const hint = el("p", { class: "muted" });
+    const output = el("pre", { className: "muted" } as Partial<HTMLPreElement>);
+    output.setAttribute("aria-label", "Result");
+    let pendingId: string | undefined;
+
+    function fill() {
+      const a = actions.find((x) => x.name === select.value);
+      if (!a) return;
+      hint.textContent = a.description;
+      const props = (a.input.properties ?? {}) as Record<string, { type?: string; default?: unknown }>;
+      const required = (a.input.required ?? []) as string[];
+      const example: Record<string, unknown> = {};
+      for (const k of required) example[k] = k === "locator" ? { css: "" } : props[k]?.type === "string" ? "" : props[k]?.type === "array" ? [] : props[k]?.type === "number" ? 0 : {};
+      input.value = JSON.stringify(example, null, 2);
+    }
+    const run = () => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(input.value || "{}");
+      } catch (e) {
+        output.textContent = `Input is not valid JSON: ${(e as Error).message}`;
+        return;
+      }
+      pendingId = Math.random().toString(36).slice(2);
+      output.textContent = "Running…";
+      const t = target.value.trim();
+      send({ cmd: "call", id: pendingId, action: select.value, input: parsed, ...(t ? { target: { tab: { urlMatch: t } } } : {}) });
+    };
+    const section = el(
+      "section",
+      {},
+      el("h2", {}, el("span", {}, "Playground"), el("span", { class: "muted" }, "runs as control-panel")),
+      el("label", {}, "Action"),
+      select,
+      hint,
+      el("label", {}, "Input (JSON)"),
+      input,
+      el("label", {}, "Target tab"),
+      target,
+      el("div", { class: "row spaced" }, button("Run", run, "primary")),
+      output,
+    );
+    return {
+      section,
+      onReply(msg: UiReply) {
+        if (msg.kind === "describe") {
+          actions = msg.actions;
+          select.replaceChildren(...actions.map((a) => el("option", { value: a.name }, a.name)));
+          fill();
+        } else if (msg.id === pendingId) {
+          output.textContent = msg.ok ? `✔ ${msg.ms} ms
+${JSON.stringify(msg.output, null, 2)}` : `✖ ${msg.error.code}: ${msg.error.message}`;
+        }
+      },
+    };
+  }
+
+  // Built after the helpers above exist; kept outside view so re-renders don't wipe the form.
+  if (options.playground) {
+    playground = buildPlayground();
+    root.append(playground.section);
+  }
   render();
   connectPort();
   return {

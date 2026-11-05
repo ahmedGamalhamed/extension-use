@@ -167,7 +167,19 @@ async function pressKey(el: Element, key: string, mods: Mods) {
 const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "HEAD", "META", "LINK", "SVG"]);
 const STRUCTURAL_ROLES = new Set(["generic", "none", "presentation", "label", "group"]);
 
-function buildSnapshot(root: Element, maxNodes: number, interactiveOnly: boolean) {
+interface SnapshotOptions {
+  maxNodes: number;
+  interactiveOnly: boolean;
+  viewportOnly: boolean;
+  textMaxLength: number;
+}
+
+function inViewport(el: Element) {
+  const r = el.getBoundingClientRect();
+  return r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+}
+
+function buildSnapshot(root: Element, { maxNodes, interactiveOnly, viewportOnly, textMaxLength }: SnapshotOptions) {
   let count = 0;
   let truncated = false;
 
@@ -180,6 +192,8 @@ function buildSnapshot(root: Element, maxNodes: number, interactiveOnly: boolean
     if (el.id === OVERLAY_HOST_ID) return [];
     const style = getComputedStyle(el);
     if (style.display === "none" || style.visibility === "hidden") return [];
+    // display: contents boxes have no rect; judge them by their children.
+    if (viewportOnly && style.display !== "contents" && el !== document.body && el !== document.documentElement && !inViewport(el)) return [];
 
     const role = roleOf(el);
     const interactive = INTERACTIVE_ROLES.has(role) || (el as HTMLElement).isContentEditable;
@@ -193,7 +207,7 @@ function buildSnapshot(root: Element, maxNodes: number, interactiveOnly: boolean
           const text = (node.textContent ?? "").replace(/\s+/g, " ").trim();
           if (text) {
             count++;
-            children.push({ role: "text", name: text.length > 300 ? `${text.slice(0, 300)}…` : text });
+            children.push({ role: "text", name: text.length > textMaxLength ? `${text.slice(0, textMaxLength)}…` : text });
           }
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           children.push(...visit(node as Element));
@@ -295,7 +309,7 @@ export const domContent: ContentGroup = {
     },
     "dom.snapshot": async (input: In<"dom.snapshot">, ctx) => {
       const root = input.locator ? await find(input.locator, ctx, false) : document.body;
-      const snap = buildSnapshot(root, input.maxNodes, input.interactiveOnly);
+      const snap = buildSnapshot(root, input);
       return {
         ...(input.format !== "text" ? { root: snap.root } : {}),
         ...(input.format !== "tree" ? { text: snapshotText(snap.root).join("\n") } : {}),

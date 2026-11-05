@@ -5,7 +5,8 @@
  */
 import { ExtensionUseError, matchAny, matchPattern, type Envelope, type Target } from "@extension-use/protocol";
 import type { ActionDef, ActionGroup, ResolvedTab, SessionInfo } from "../registry.js";
-import { CONTENT_MESSAGE, CONTENT_EVENT, CONTENT_CANCEL, FRAME_PORT, UI_PORT, type BridgeHello, type UiCommand, type UiState } from "../wire.js";
+import { CONTENT_MESSAGE, CONTENT_EVENT, CONTENT_CANCEL, FRAME_PORT, UI_PORT, type BridgeHello, type UiCommand, type UiReply, type UiState } from "../wire.js";
+import { envelope, randomId as newId, type ResultEnvelope } from "@extension-use/protocol";
 import { allBuiltinGroups } from "./groups.js";
 import { setupRemote, type RemoteConfig } from "./remote.js";
 import { createRouter, type AuditEntry, type Policy } from "./router.js";
@@ -237,6 +238,31 @@ export function defineHost(options: HostOptions) {
     if (title) chrome.action.setTitle({ title: `${options.name ?? options.id}: ${title}` }).catch(() => {});
   }
 
+  // The playground in the control panel calls actions as its own, audited session.
+  const pendingUi = new Map<string, (r: ResultEnvelope) => void>();
+  let uiConn: ReturnType<typeof router.connect> | undefined;
+  function uiCall(action: string, input: unknown, target?: Target): Promise<ResultEnvelope> {
+    if (!uiConn) {
+      uiConn = router.connect({
+        transport: "ui",
+        origin: "control-panel",
+        grants: ["*"],
+        send: (env) => {
+          if (env.kind === "result") {
+            pendingUi.get(env.id)?.(env);
+            pendingUi.delete(env.id);
+          }
+        },
+      });
+      uiConn.receive(envelope({ kind: "hello", client: { name: "control-panel", protocols: [1] } }));
+    }
+    const id = newId();
+    return new Promise((resolve) => {
+      pendingUi.set(id, resolve);
+      uiConn!.receive(envelope({ kind: "call", id, action, input, ...(target ? { target } : {}) }));
+    });
+  }
+
   // The control panel: extension pages only (content scripts and websites can't connect).
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== UI_PORT) return;
@@ -268,6 +294,19 @@ export function defineHost(options: HostOptions) {
           case "reconnect":
             remote?.reconnect();
             break;
+          case "describe": {
+            const r = await uiCall("runtime.describe", {});
+            type Described = Extract<UiReply, { kind: "describe" }>["actions"];
+            const actions: Described = r.ok ? (r.output as { actions: Described }).actions : [];
+            safePost(port, { kind: "describe", actions: actions.map(({ name, description, where, input }) => ({ name, description, where, input })) } satisfies UiReply);
+            return;
+          }
+          case "call": {
+            const started = Date.now();
+            const r = await uiCall(msg.action, msg.input, msg.target);
+            safePost(port, (r.ok ? { kind: "call-result", id: msg.id, ok: true, output: r.output, ms: Date.now() - started } : { kind: "call-result", id: msg.id, ok: false, error: r.error, ms: Date.now() - started }) satisfies UiReply);
+            return;
+          }
         }
         safePost(port, uiState());
       } catch (e) {

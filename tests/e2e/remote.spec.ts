@@ -1,24 +1,13 @@
 import { connect, type Client } from "@extension-use/client";
 import { remote } from "@extension-use/client/remote";
-import { createRelay, type Relay } from "@extension-use/relay";
-import type { Page, Worker } from "@playwright/test";
+import { createRelay } from "@extension-use/relay";
+import type { Worker } from "@playwright/test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FIXTURE_TARGET, FIXTURE_URL, expect, test } from "./fixtures.js";
+import { FIXTURE_TARGET, FIXTURE_URL, expect, pairThroughControlPanel, test } from "./fixtures.js";
 
 const T = { target: FIXTURE_TARGET };
-
-async function pairThroughControlPanel(page: Page, relay: Relay, relayUrl: string) {
-  // The control panel lives in an open shadow root; Playwright's locators pierce it.
-  await page.getByLabel("Relay URL").fill(relayUrl);
-  await page.getByRole("button", { name: "Connect to relay" }).click();
-  const code = (await page.locator(".code").textContent())!;
-  expect(code).toMatch(/^\d{3}-\d{3}$/);
-  expect(relay.pendingPairings()).toEqual([expect.objectContaining({ code })]);
-  relay.approve(code);
-  await expect(page.getByText(`Connected to ${relayUrl}`)).toBeVisible({ timeout: 10_000 });
-}
 
 const badge = (sw: Worker) => sw.evaluate(() => chrome.action.getBadgeText({}));
 
@@ -44,7 +33,7 @@ test("remote control through a relay: pairing, calls, visible control, kill swit
     await expect(fixture.locator(".controlled")).toHaveText("Controlled by remote: owner");
     expect(await badge(serviceWorker)).toBe("ON");
     await expect(control.getByText("relay:owner").first()).toBeVisible();
-    await expect(control.getByText(/dom\.fill/)).toBeVisible();
+    await expect(control.getByText(/\d{2}:\d{2}:\d{2}.*dom\.fill/)).toBeVisible(); // in the activity log
 
     // HTTP calls work too, with a narrower token.
     const { token } = await (

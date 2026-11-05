@@ -18,6 +18,7 @@ export interface ResolvedTab {
 
 export interface ActionContext {
   session: SessionInfo;
+  host: { id: string; name?: string; version?: string };
   target: Target | undefined;
   signal: AbortSignal;
   timeoutMs: number;
@@ -25,6 +26,13 @@ export interface ActionContext {
   tab(): Promise<ResolvedTab>;
   /** Run a content action in the call's target tab. */
   callContent<O = unknown>(action: string, input: unknown): Promise<O>;
+  /**
+   * Run another action as the same controller, through the full pipeline
+   * (grants, input checks, policy, audit). Used by run.sequence.
+   */
+  call(action: string, input: unknown, options?: { target?: Target; timeoutMs?: number }): Promise<unknown>;
+  /** The actions this controller may call. */
+  listActions(): ActionDef[];
   /** Check a URL against the site policy. Throws BLOCKED_BY_POLICY. */
   assertAllowedUrl(url: string): void;
   emit(name: string, payload: unknown, tabId?: number): void;

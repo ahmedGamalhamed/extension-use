@@ -163,17 +163,35 @@ export function createRouter(opts: RouterOptions) {
     }
   }
 
-  async function runCall(state: SessionState, call: CallEnvelope) {
+  interface Invocation {
+    id: string;
+    action: string;
+    input: unknown;
+    target?: Target;
+    timeoutMs?: number;
+    /** Nesting depth: 0 for calls from a controller, 1 inside run.sequence. */
+    depth: number;
+    parentSignal?: AbortSignal;
+  }
+
+  /** The whole pipeline for one call: checks, validation, dispatch, timeout and audit. */
+  async function execute(state: SessionState, call: Invocation): Promise<unknown> {
     const started = Date.now();
     const def = actions.get(call.action);
     let tabId: number | undefined;
-    const reply = (env: Envelope) => state.channel.send(env);
+    const abort = new AbortController();
+    const onParentAbort = () => abort.abort(call.parentSignal?.reason);
+    if (call.depth === 0) state.pending.set(call.id, abort);
+    call.parentSignal?.addEventListener("abort", onParentAbort, { once: true });
 
     try {
       if (paused) throw new ExtensionUseError("BLOCKED_BY_POLICY", "Control is paused by the person using this browser");
       if (!def) throw new ExtensionUseError("UNKNOWN_ACTION", `Unknown action "${call.action}"`);
       if (!matchAny(state.info.granted, call.action)) {
         throw new ExtensionUseError("NOT_GRANTED", `This controller may not call "${call.action}"`);
+      }
+      if (call.depth > 0 && def.schema.nestable === false) {
+        throw new ExtensionUseError("INVALID_INPUT", `"${call.action}" can't be used inside another action`);
       }
 
       const parsed = def.schema.input.safeParse(call.input ?? {});
@@ -184,8 +202,6 @@ export function createRouter(opts: RouterOptions) {
       }
 
       const timeoutMs = call.timeoutMs ?? def.schema.timeoutMs ?? opts.defaultTimeoutMs ?? 10_000;
-      const abort = new AbortController();
-      state.pending.set(call.id, abort);
       const frameId = typeof call.target?.frame === "number" ? call.target.frame : 0;
 
       let tabPromise: Promise<ResolvedTab> | undefined;
@@ -219,6 +235,7 @@ export function createRouter(opts: RouterOptions) {
 
       const ctx: ActionContext = {
         session: state.info,
+        host: opts.host,
         target: call.target,
         signal: abort.signal,
         timeoutMs,
@@ -229,6 +246,17 @@ export function createRouter(opts: RouterOptions) {
           const p = inner.schema.input.parse(input ?? {});
           return (await sendContent(action, p, randomId())) as O;
         },
+        call: (action, input, options = {}) =>
+          execute(state, {
+            id: randomId(),
+            action,
+            input,
+            depth: call.depth + 1,
+            parentSignal: abort.signal,
+            ...((options.target ?? call.target) ? { target: options.target ?? call.target } : {}),
+            ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+          }),
+        listActions: () => [...actions.values()].filter((d) => matchAny(state.info.granted, d.name)),
         assertAllowedUrl,
         emit,
       };
@@ -238,16 +266,33 @@ export function createRouter(opts: RouterOptions) {
           ? sendContent(def.name, parsed.data, call.id)
           : Promise.resolve().then(() => def.handler!(parsed.data, ctx));
 
-      const output = await withTimeout(work, timeoutMs, abort);
-      reply(envelope({ kind: "result", id: call.id, ok: true, output: output ?? {} }));
+      const output = (await withTimeout(work, timeoutMs, abort)) ?? {};
       audit({ ts: started, session: state.info.id, transport: state.info.transport, origin: state.info.origin, action: call.action, ...(tabId !== undefined ? { tabId } : {}), ok: true, ms: Date.now() - started });
+      return output;
     } catch (err) {
       const e = ExtensionUseError.from(err);
       log("call failed", call.action, e.code, e.message);
-      reply(envelope({ kind: "result", id: call.id, ok: false, error: e.toPayload() }));
       audit({ ts: started, session: state.info.id, transport: state.info.transport, origin: state.info.origin, action: call.action, ...(tabId !== undefined ? { tabId } : {}), ok: false, code: e.code, ms: Date.now() - started });
+      throw e;
     } finally {
-      state.pending.delete(call.id);
+      call.parentSignal?.removeEventListener("abort", onParentAbort);
+      if (call.depth === 0) state.pending.delete(call.id);
+    }
+  }
+
+  async function runCall(state: SessionState, call: CallEnvelope) {
+    try {
+      const output = await execute(state, {
+        id: call.id,
+        action: call.action,
+        input: call.input,
+        depth: 0,
+        ...(call.target ? { target: call.target } : {}),
+        ...(call.timeoutMs !== undefined ? { timeoutMs: call.timeoutMs } : {}),
+      });
+      state.channel.send(envelope({ kind: "result", id: call.id, ok: true, output }));
+    } catch (err) {
+      state.channel.send(envelope({ kind: "result", id: call.id, ok: false, error: ExtensionUseError.from(err).toPayload() }));
     }
   }
 

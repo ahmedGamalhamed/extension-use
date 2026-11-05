@@ -12,6 +12,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { generateTypes, type DescribeOutput } from "./codegen.js";
 import { GROUP_NAMES, withExtensionUse, type GroupName, type ManifestFields } from "./permissions.js";
 
 const argv = process.argv.slice(2);
@@ -30,6 +31,13 @@ const HELP = `Usage:
     --no-side-panel     Don't add the "sidePanel" permission
     --remote            Remote control through a relay (adds "storage" and "alarms")
     --write <file>      Merge into manifest.json, or into the "manifest" key of package.json
+
+  extension-use codegen [options]    Write TypeScript types for your extension's own actions
+    --relay <url>       Ask a running browser through a relay (token: EXTENSION_USE_TOKEN or --token)
+    --device <id>       Device to ask (default "default")
+    --from <file>       Or read saved runtime.describe output (JSON)
+    --out <file>        Where to write (default extension-actions.ts)
+    --all               Include the built-in actions too
 
   extension-use vendor [options]     Copy the no-build bundles into your project
     --extension <dir>   Where to put the extension bundles (default extension/vendor)
@@ -83,8 +91,33 @@ function vendor() {
   console.log(`Copied:\n  ${copied.join("\n  ")}`);
 }
 
+async function codegen() {
+  let describe: DescribeOutput;
+  const from = flag("from");
+  if (from) {
+    describe = JSON.parse(readFileSync(from, "utf8")) as DescribeOutput;
+  } else {
+    const relay = flag("relay");
+    const token = process.env.EXTENSION_USE_TOKEN ?? flag("token");
+    if (!relay || !token) throw new Error("Give --relay and a token (EXTENSION_USE_TOKEN), or --from <describe.json>");
+    const res = await fetch(`${relay.replace(/\/+$/, "")}/v1/devices/${encodeURIComponent(flag("device") ?? "default")}/calls`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ action: "runtime.describe" }),
+    });
+    const json = (await res.json()) as { ok: boolean; output?: DescribeOutput; error?: { code: string; message: string } };
+    if (!json.ok || !json.output) throw new Error(`${json.error?.code}: ${json.error?.message}`);
+    describe = json.output;
+  }
+  if (!Array.isArray(describe?.actions)) throw new Error("Not runtime.describe output");
+  const out = flag("out") ?? "extension-actions.ts";
+  writeFileSync(out, generateTypes(describe, { all: argv.includes("--all") }));
+  console.log(`Wrote ${out} (${describe.actions.length} actions from ${describe.host.name ?? describe.host.id})`);
+}
+
 try {
   if (command === "manifest") manifest();
+  else if (command === "codegen") await codegen();
   else if (command === "vendor") vendor();
   else {
     console.log(HELP);

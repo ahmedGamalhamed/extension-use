@@ -5,7 +5,7 @@
  * content runtime.
  */
 import { ExtensionUseError, matchPattern } from "@extension-use/protocol";
-import { coreActionSchemas, type CoreActionName, type TabInfo } from "@extension-use/protocol/schemas";
+import { coreActionSchemas, z, type CoreActionName, type TabInfo } from "@extension-use/protocol/schemas";
 import type { ActionContext, ActionDef, ActionGroup } from "../registry.js";
 
 type S = typeof coreActionSchemas;
@@ -79,7 +79,58 @@ export const runtimeGroup: ActionGroup = {
   name: "runtime",
   permissions: [],
   needsHostAccess: false,
-  actions: [bg("runtime.ping", () => ({ pong: true as const, ts: Date.now() }))],
+  actions: [
+    bg("runtime.ping", () => ({ pong: true as const, ts: Date.now() })),
+    bg("runtime.describe", (input, ctx) => {
+      const toJson = (schema: z.ZodType, io: "input" | "output") =>
+        z.toJSONSchema(schema, { io, unrepresentable: "any", reused: "inline", cycles: "ref" }) as Record<string, unknown>;
+      const wanted = input.actions ? new Set(input.actions) : undefined;
+      return {
+        host: ctx.host,
+        actions: ctx
+          .listActions()
+          .filter((d) => !wanted || wanted.has(d.name))
+          .map((d) => ({
+            name: d.name,
+            description: d.schema.description,
+            where: d.schema.where,
+            version: d.schema.version,
+            input: toJson(d.schema.input, "input"),
+            output: toJson(d.schema.output, "output"),
+          })),
+      };
+    }),
+  ],
+};
+
+export const runGroup: ActionGroup = {
+  name: "run",
+  permissions: [],
+  needsHostAccess: false,
+  actions: [
+    bg("run.sequence", async (input, ctx) => {
+      const results: ({ ok: true; action: string; output: unknown } | { ok: false; action: string; error: { code: string; message: string } })[] = [];
+      let completed = 0;
+      for (const step of input.steps) {
+        if (ctx.signal.aborted) throw ctx.signal.reason;
+        try {
+          const output = await ctx.call(step.action, step.input ?? {}, {
+            ...(step.target ? { target: step.target as never } : {}),
+            ...(step.timeoutMs !== undefined ? { timeoutMs: step.timeoutMs } : {}),
+          });
+          results.push({ ok: true, action: step.action, output });
+          completed++;
+          if (step.pauseMs) await new Promise((r) => setTimeout(r, step.pauseMs));
+        } catch (err) {
+          const e = ExtensionUseError.from(err);
+          if (e.code === "BLOCKED_BY_POLICY" && /paused/i.test(e.message)) throw e; // the kill switch stops everything
+          results.push({ ok: false, action: step.action, error: { code: e.code, message: e.message } });
+          if ((step.onError ?? input.onError) === "stop") break;
+        }
+      }
+      return { completed, ok: results.every((r) => r.ok) && results.length === input.steps.length, results };
+    }),
+  ],
 };
 
 export const tabsGroup: ActionGroup = {
@@ -236,6 +287,7 @@ export const pickerGroup = contentGroup("picker", ["picker.start", "picker.cance
 
 export const builtinGroups = {
   runtime: runtimeGroup,
+  run: runGroup,
   tabs: tabsGroup,
   capture: captureGroup,
   page: pageGroup,

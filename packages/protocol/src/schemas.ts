@@ -99,6 +99,8 @@ export interface ActionSchema<I extends z.ZodType = z.ZodType, O extends z.ZodTy
   /** Default timeout for the whole call, in ms. */
   timeoutMs?: number;
   description: string;
+  /** false: can't run inside another action (run.sequence). Default true. */
+  nestable?: boolean;
 }
 
 function action<I extends z.ZodType, O extends z.ZodType>(
@@ -106,14 +108,80 @@ function action<I extends z.ZodType, O extends z.ZodType>(
   description: string,
   input: I,
   output: O,
-  extra: { timeoutMs?: number; version?: number } = {},
+  extra: { timeoutMs?: number; version?: number; nestable?: boolean } = {},
 ): ActionSchema<I, O> {
-  return { input, output, where, description, version: extra.version ?? 1, ...(extra.timeoutMs ? { timeoutMs: extra.timeoutMs } : {}) };
+  return {
+    input,
+    output,
+    where,
+    description,
+    version: extra.version ?? 1,
+    ...(extra.timeoutMs ? { timeoutMs: extra.timeoutMs } : {}),
+    ...(extra.nestable === false ? { nestable: false } : {}),
+  };
 }
+
+const jsonSchemaLike = z.record(z.string(), z.unknown());
+
+/** One step of run.sequence: data only, no expressions or branches. */
+export const sequenceStepSchema = z.object({
+  action: z.string(),
+  input: z.unknown().optional(),
+  target: z
+    .object({
+      tab: z.union([z.literal("active"), z.number(), z.object({ urlMatch: z.string() })]).optional(),
+      frame: z.union([z.literal("top"), z.number()]).optional(),
+    })
+    .optional(),
+  timeoutMs: z.number().int().min(1).max(120_000).optional(),
+  /** What to do if this step fails. Default: the sequence's onError. */
+  onError: z.enum(["stop", "continue"]).optional(),
+  /** Wait this long after the step succeeds (for animations, debounced UIs). */
+  pauseMs: z.number().int().min(0).max(10_000).optional(),
+});
 
 export const coreActionSchemas = {
   // runtime ----------------------------------------------------------------
   "runtime.ping": action("background", "Check the connection.", empty, z.object({ pong: z.literal(true), ts: z.number() })),
+  "runtime.describe": action(
+    "background",
+    "List the actions this controller may call, with JSON schemas for their input and output. Includes host-defined actions.",
+    z.object({ actions: z.array(z.string()).optional() }),
+    z.object({
+      host: z.object({ id: z.string(), name: z.string().optional(), version: z.string().optional() }),
+      actions: z.array(
+        z.object({
+          name: z.string(),
+          description: z.string(),
+          where: z.enum(["background", "content", "bridge"]),
+          version: z.number(),
+          input: jsonSchemaLike,
+          output: jsonSchemaLike,
+        }),
+      ),
+    }),
+  ),
+
+  // run -------------------------------------------------------------------
+  "run.sequence": action(
+    "background",
+    "Run several actions in order in one round trip. Steps are plain data: no conditions or expressions. Each step is checked like a separate call.",
+    z.object({
+      steps: z.array(sequenceStepSchema).min(1).max(50),
+      onError: z.enum(["stop", "continue"]).default("stop"),
+    }),
+    z.object({
+      completed: z.number(),
+      ok: z.boolean(),
+      results: z.array(
+        z.union([
+          z.object({ ok: z.literal(true), action: z.string(), output: z.unknown() }),
+          z.object({ ok: z.literal(false), action: z.string(), error: z.object({ code: z.string(), message: z.string() }) }),
+        ]),
+      ),
+    }),
+    { timeoutMs: 120_000, nestable: false },
+  ),
 
   // tabs ------------------------------------------------------------------
   "tabs.list": action(
@@ -212,6 +280,10 @@ export const coreActionSchemas = {
       locator: locatorSchema.optional(),
       maxNodes: z.number().int().min(1).max(20_000).default(1500),
       interactiveOnly: z.boolean().default(false),
+      /** Only elements at least partly inside the visible viewport. Keeps snapshots of long pages small. */
+      viewportOnly: z.boolean().default(false),
+      /** Cut text nodes longer than this. */
+      textMaxLength: z.number().int().min(10).max(5000).default(300),
       format: z.enum(["tree", "text", "both"]).default("both"),
     }),
     z.object({
