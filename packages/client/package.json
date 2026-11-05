@@ -1,0 +1,37 @@
+{
+  "name": "@extension-use/client",
+  "version": "0.1.0",
+  "description": "Typed client to drive an Extension-use host from a frame, a web page or a script",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./frame": {
+      "source": "./src/transports/frame.ts",
+      "types": "./dist/transports/frame.d.ts",
+      "default": "./dist/transports/frame.js"
+    },
+    "./page": {
+      "source": "./src/transports/page.ts",
+      "types": "./dist/transports/page.d.ts",
+      "default": "./dist/transports/page.js"
+    },
+    "./memory": {
+      "source": "./src/transports/memory.ts",
+      "types": "./dist/transports/memory.d.ts",
+      "default": "./dist/transports/memory.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/transports/frame.ts src/transports/page.ts src/transports/memory.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@extension-use/protocol": "workspace:*"
+  }
+}

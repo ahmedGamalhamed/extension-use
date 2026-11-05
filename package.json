@@ -1,0 +1,28 @@
+{
+  "name": "extension-use-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "build": "pnpm -r --filter ./packages/* build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "pnpm example:build && playwright test",
+    "example:build": "node examples/basic-extension/build.mjs && node examples/controller-app/build.mjs",
+    "example:serve": "node examples/controller-app/serve.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/chrome": "^0.1.27",
+    "@types/node": "^24.10.0",
+    "esbuild": "^0.25.12",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

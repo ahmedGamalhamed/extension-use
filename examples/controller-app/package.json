@@ -1,0 +1,12 @@
+{
+  "name": "@extension-use/example-controller-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node serve.mjs"
+  },
+  "dependencies": {
+    "@extension-use/client": "workspace:*"
+  }
+}

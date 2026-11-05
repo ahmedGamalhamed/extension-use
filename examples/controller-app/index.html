@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Extension-use controller</title>
+    <style>
+      :root { color-scheme: light dark; --bg: #fff; --fg: #111827; --muted: #6b7280; --border: #e5e7eb; --accent: #7c3aed; --err: #dc2626; --ok: #059669; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #111318; --fg: #e5e7eb; --muted: #9ca3af; --border: #2a2f3a; --accent: #a78bfa; --err: #f87171; --ok: #34d399; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 12px; font: 13px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      #status { color: var(--muted); margin-bottom: 10px; }
+      #status.ok { color: var(--ok); } #status.error { color: var(--err); }
+      label { display: block; color: var(--muted); font-size: 12px; margin: 8px 0 2px; }
+      input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+      .buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+      button { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: inherit; cursor: pointer; font: inherit; }
+      button:not(:disabled):hover { border-color: var(--accent); }
+      .entry { border-top: 1px solid var(--border); padding: 6px 0; }
+      .entry.error strong { color: var(--err); }
+      pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+      .shot { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Extension-use controller</h1>
+    <div id="status">Loading…</div>
+    <label for="target">Target tab (URL pattern, empty = active tab)</label>
+    <input id="target" placeholder="*example.com*" />
+    <label for="locator">Locator: CSS, a ref like e12, or role "name"</label>
+    <input id="locator" placeholder='button "Save"' />
+    <div class="buttons">
+      <button data-action="info" disabled>Page info</button>
+      <button data-action="snapshot" disabled>Snapshot</button>
+      <button data-action="tabs" disabled>Tabs</button>
+      <button data-action="highlight" disabled>Highlight</button>
+      <button data-action="click" disabled>Click</button>
+      <button data-action="pick" disabled>Pick element</button>
+      <button data-action="toast" disabled>Toast</button>
+      <button data-action="screenshot" disabled>Screenshot</button>
+    </div>
+    <div id="log"></div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

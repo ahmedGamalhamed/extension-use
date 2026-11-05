@@ -1,0 +1,43 @@
+{
+  "name": "@extension-use/host",
+  "version": "0.1.0",
+  "description": "Run inside your extension: router, content runtime and frame bridge for Extension-use",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./background": {
+      "source": "./src/background/index.ts",
+      "types": "./dist/background/index.d.ts",
+      "default": "./dist/background/index.js"
+    },
+    "./content": {
+      "source": "./src/content/index.ts",
+      "types": "./dist/content/index.d.ts",
+      "default": "./dist/content/index.js"
+    },
+    "./frame": {
+      "source": "./src/frame/index.ts",
+      "types": "./dist/frame/index.d.ts",
+      "default": "./dist/frame/index.js"
+    },
+    "./permissions": {
+      "source": "./src/permissions.ts",
+      "types": "./dist/permissions.d.ts",
+      "default": "./dist/permissions.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/background/index.ts src/content/index.ts src/frame/index.ts src/permissions.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@extension-use/protocol": "workspace:*",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@extension-use/client": "workspace:*"
+  }
+}

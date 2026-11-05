@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixture: form</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 24px; }
+      .spacer { height: 1500px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>Order form</h1>
+    <nav><a href="#top">Home</a> <a href="#help">Help</a></nav>
+    <form id="order">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" />
+      <label for="notes">Notes</label>
+      <textarea id="notes"></textarea>
+      <label for="password">Password</label>
+      <input id="password" type="password" />
+      <label for="size">Size</label>
+      <select id="size">
+        <option value="s">Small</option>
+        <option value="m">Medium</option>
+        <option value="l">Large</option>
+      </select>
+      <label><input id="gift" type="checkbox" /> Gift wrap</label>
+      <button type="button" id="save" data-testid="save-btn">Save draft</button>
+      <button type="submit">Place order</button>
+      <button type="button" disabled>Disabled</button>
+    </form>
+    <p id="status">idle</p>
+    <ul id="events"></ul>
+    <div id="later" class="hidden">Appears later</div>
+    <div class="spacer"></div>
+    <button id="far">Far away button</button>
+    <script>
+      const status = document.getElementById("status");
+      const events = document.getElementById("events");
+      const record = (t) => { const li = document.createElement("li"); li.textContent = t; events.append(li); };
+      document.getElementById("save").addEventListener("click", (e) => { status.textContent = "saved:" + e.isTrusted; record("click save"); });
+      document.getElementById("email").addEventListener("input", (e) => record("input email=" + e.target.value));
+      document.getElementById("size").addEventListener("change", (e) => record("change size=" + e.target.value));
+      document.getElementById("gift").addEventListener("change", (e) => record("change gift=" + e.target.checked));
+      document.getElementById("far").addEventListener("click", () => record("click far"));
+      document.getElementById("order").addEventListener("submit", (e) => { e.preventDefault(); status.textContent = "submitted"; record("submit"); });
+      setTimeout(() => document.getElementById("later").classList.remove("hidden"), 400);
+    </script>
+  </body>
+</html>

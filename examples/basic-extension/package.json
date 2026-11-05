@@ -1,0 +1,12 @@
+{
+  "name": "@extension-use/example-basic-extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@extension-use/host": "workspace:*",
+    "@extension-use/protocol": "workspace:*"
+  }
+}
