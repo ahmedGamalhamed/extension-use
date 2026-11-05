@@ -10,7 +10,15 @@ remote / MCP (planned)          ──relay────────────�
 
 The extension keeps the privileges. Controllers can only call the actions the extension enables, on the sites its policy allows. No remote code ever runs, so it stays within Chrome Web Store rules.
 
-Status: **0.1, phase 1 of [the design](docs/design.md).** Frame and page transports work end to end. Remote relay, MCP and framework adapters come next.
+Status: **0.1, phase 1 of [the design](docs/design.md) done.** Frame and page transports, a setup command and a WXT adapter all work end to end. The test kit, other framework adapters, the remote relay and MCP come next.
+
+## Start a new project
+
+```bash
+npm create extension-use@latest my-extension
+```
+
+It asks for a template (`plain` with esbuild, or `wxt`) and the URL of your web app. It then creates an extension whose side panel loads that app, with a pinned extension ID and a small demo controller.
 
 ## Packages
 
@@ -19,6 +27,8 @@ Status: **0.1, phase 1 of [the design](docs/design.md).** Frame and page transpo
 | `@extension-use/protocol` | Envelope types, error codes, zod schemas for every built-in action | (types only in clients) |
 | `@extension-use/host` | `/background` router and `defineHost()`, `/content` runtime with DOM actions, overlay and picker, `/frame` bridge for side panels and popups, `/permissions` manifest helper | content runtime ≈ 9.3 KB |
 | `@extension-use/client` | Typed client with `frame()`, `page()` and `memoryPair()` transports | core ≈ 2.1 KB + frame ≈ 0.8 KB |
+| `@extension-use/wxt` | WXT module: adds the permissions for your action groups and `externally_connectable` to the manifest | build time only |
+| `create-extension-use` | `npm create extension-use`: plain and WXT templates | n/a |
 
 ## Use it
 
@@ -63,7 +73,9 @@ Every action and its input is typed. Wrong input comes back as `INVALID_INPUT`, 
 
 ## Built-in actions
 
-`runtime.ping` · `tabs.list/open/close/activate/navigate/reload/waitForLoad` · `capture.screenshot` (whole view or one element) · `page.info/scroll` · `dom.query/text/snapshot/click/hover/focus/type/fill/select/check/press/scrollTo` · `wait.for` · `overlay.highlight/clear/toast` · `picker.start/cancel`
+`runtime.ping` · `tabs.list/open/close/activate/navigate/reload/waitForLoad` · `capture.screenshot` (whole view or one element) · `page.info/scroll` · `dom.query/text/snapshot/click/hover/focus/type/fill/select/check/press/scrollTo` · `wait.for` · `overlay.highlight/clear/toast` · `picker.start/cancel` · `permissions.request/contains/getAll`
+
+The `permissions.*` actions run in the frame bridge, the extension page that holds your iframe. A click inside your web app gives that page a user gesture, so `permissions.request` works right after the person clicks. It returns `NEEDS_USER_GESTURE` otherwise. Only frame controllers get these actions.
 
 Locators: `ref` (from a snapshot), `role` + `name`, `testId`, `text`, `css`, plus `nth` and `exact`.
 

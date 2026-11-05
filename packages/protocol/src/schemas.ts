@@ -94,7 +94,7 @@ const scrollBehavior = z.enum(["auto", "smooth", "instant"]);
 export interface ActionSchema<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType> {
   input: I;
   output: O;
-  where: "background" | "content";
+  where: "background" | "content" | "bridge";
   version: number;
   /** Default timeout for the whole call, in ms. */
   timeoutMs?: number;
@@ -102,7 +102,7 @@ export interface ActionSchema<I extends z.ZodType = z.ZodType, O extends z.ZodTy
 }
 
 function action<I extends z.ZodType, O extends z.ZodType>(
-  where: "background" | "content",
+  where: "background" | "content" | "bridge",
   description: string,
   input: I,
   output: O,
@@ -342,7 +342,34 @@ export const coreActionSchemas = {
     { timeoutMs: 120_000 },
   ),
   "picker.cancel": action("content", "Stop an active picker.", empty, empty),
+
+  // permissions (run in the frame bridge, which has the person's click) ----
+  "permissions.contains": action(
+    "bridge",
+    "Check whether the extension has these permissions or host origins.",
+    permissionSetSchema(),
+    z.object({ granted: z.boolean() }),
+  ),
+  "permissions.request": action(
+    "bridge",
+    "Ask the person for optional permissions or host origins. Needs a click in the frame within the last few seconds.",
+    permissionSetSchema(),
+    z.object({ granted: z.boolean() }),
+    { timeoutMs: 120_000 },
+  ),
+  "permissions.getAll": action(
+    "bridge",
+    "List the permissions and host origins the extension has now.",
+    empty,
+    z.object({ permissions: z.array(z.string()), origins: z.array(z.string()) }),
+  ),
 } satisfies Record<string, ActionSchema>;
+
+function permissionSetSchema() {
+  return z
+    .object({ permissions: z.array(z.string()).optional(), origins: z.array(z.string()).optional() })
+    .refine((p) => (p.permissions?.length ?? 0) + (p.origins?.length ?? 0) > 0, { message: "Give permissions or origins" });
+}
 
 export type CoreActionName = keyof typeof coreActionSchemas;
 

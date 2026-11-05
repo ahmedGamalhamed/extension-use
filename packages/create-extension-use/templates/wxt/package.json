@@ -1,0 +1,25 @@
+{
+  "name": "{{packageName}}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "build": "wxt build && node web/serve.mjs",
+    "zip": "wxt zip",
+    "typecheck": "tsc",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@extension-use/client": "{{sdk}}",
+    "@extension-use/host": "{{sdk}}"
+  },
+  "devDependencies": {
+    "@extension-use/wxt": "{{sdk}}",
+    "@types/chrome": "^0.1.27",
+    "@types/node": "^24.10.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3",
+    "wxt": "^0.21.5"
+  }
+}

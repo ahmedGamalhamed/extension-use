@@ -161,6 +161,39 @@ test("frame origin checks: other sites can't drive the extension", async ({ cont
   void extensionId;
 });
 
+test("bridge actions: permissions need the person's click", async ({ panel, context }) => {
+  test.setTimeout(30_000);
+  expect(await panel.ok("permissions.contains", { permissions: ["tabs"] })).toEqual({ granted: true });
+  const all = await panel.ok("permissions.getAll");
+  expect(all.permissions).toContain("tabs");
+  expect(await panel.frame.evaluate(() => window.extReady.then((e) => e.has("permissions.request")))).toBe(true);
+  expect(await panel.call("permissions.request", {})).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+
+  // evaluate() itself counts as a gesture for ~5 s, so the no-click call waits it out.
+  await panel.frame.evaluate(() => {
+    const w = window as unknown as { __late: Promise<string>; __clicked: Promise<unknown> };
+    w.__late = new Promise((resolve) =>
+      setTimeout(() => {
+        window.extReady.then((ext) => ext.callRaw("permissions.request", { permissions: ["tabs"] }).then(() => "granted", (e: { code: string }) => e.code)).then(resolve);
+      }, 6000),
+    );
+    const btn = Object.assign(document.createElement("button"), { id: "perm-test", textContent: "perm" });
+    w.__clicked = new Promise((resolve) => {
+      btn.onclick = () => window.extReady.then((ext) => ext.callRaw("permissions.request", { permissions: ["tabs"] }).then(resolve, (e: { code: string }) => resolve(e.code)));
+    });
+    document.body.prepend(btn);
+  });
+  expect(await panel.frame.evaluate(() => (window as unknown as { __late: Promise<string> }).__late)).toBe("NEEDS_USER_GESTURE");
+
+  await panel.frame.locator("#perm-test").click(); // a real click
+  expect(await panel.frame.evaluate(() => (window as unknown as { __clicked: Promise<unknown> }).__clicked)).toEqual({ granted: true });
+
+  // Page controllers don't get bridge actions.
+  const page = await context.newPage();
+  await page.goto(CONTROLLER_URL);
+  expect(await page.evaluate(() => window.extReady.then((e) => e.has("permissions.request")))).toBe(false);
+});
+
 test("spike: storage for the app inside the extension frame", async ({ panel, context }) => {
   const framed = await panel.frame.evaluate(async () => {
     localStorage.setItem("eu-shared", "from-frame");

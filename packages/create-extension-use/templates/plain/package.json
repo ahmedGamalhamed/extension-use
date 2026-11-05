@@ -1,0 +1,20 @@
+{
+  "name": "{{packageName}}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@extension-use/client": "{{sdk}}",
+    "@extension-use/host": "{{sdk}}"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.27",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@extension-use/wxt",
+  "version": "0.1.0",
+  "description": "WXT module for Extension-use: adds the manifest permissions and externally_connectable entries your host needs",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --external wxt"
+  },
+  "dependencies": {
+    "@extension-use/host": "workspace:*"
+  },
+  "peerDependencies": {
+    "wxt": ">=0.20.0"
+  },
+  "devDependencies": {
+    "wxt": "^0.21.5"
+  }
+}

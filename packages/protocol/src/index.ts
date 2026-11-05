@@ -133,8 +133,8 @@ export interface HostInfo {
 export interface Capability {
   action: string;
   version: number;
-  /** Where the action runs: in the extension background or in the page. */
-  where: "background" | "content";
+  /** Where the action runs: extension background, the page, or the frame bridge (extension page that hosts the iframe). */
+  where: "background" | "content" | "bridge";
 }
 
 // ---------------------------------------------------------------------------

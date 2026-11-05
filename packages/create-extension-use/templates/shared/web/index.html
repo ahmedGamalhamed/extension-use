@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{name}}</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; }
+      button { margin: 0 6px 6px 0; padding: 6px 12px; border-radius: 6px; border: 1px solid #8884; background: transparent; color: inherit; cursor: pointer; }
+      #status { color: #888; }
+      pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>{{name}}</h1>
+    <p id="status">Connecting…</p>
+    <button id="snapshot">Read the page</button>
+    <button id="highlight">Highlight links</button>
+    <button id="pick">Pick an element</button>
+    <pre id="output"></pre>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

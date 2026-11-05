@@ -1,0 +1,17 @@
+{
+  "name": "create-extension-use",
+  "version": "0.1.0",
+  "description": "Create a browser extension that your web app can drive, with Extension-use",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-extension-use": "./index.mjs"
+  },
+  "files": ["index.mjs", "templates"],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "build": "node -e \"\""
+  }
+}

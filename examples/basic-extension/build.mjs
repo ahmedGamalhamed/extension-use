@@ -69,6 +69,8 @@ const manifest = {
   content_scripts: [{ matches: ["<all_urls>"], js: ["content.js"], run_at: "document_idle" }],
   externally_connectable: { matches: [`${controllerOrigin}/*`] },
   ...permissions,
+  // Asked for at runtime with permissions.request (from the side panel, after a click).
+  optional_permissions: ["bookmarks"],
 };
 await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
 await cp(join(here, "sidepanel.html"), join(out, "sidepanel.html"));

@@ -79,6 +79,8 @@ async function start(): Promise<Client> {
     click: () => ext.dom.click({ locator: locator() }, opt()),
     pick: () => ext.picker.start({ prompt: "Pick something" }, opt()),
     toast: () => ext.overlay.toast({ message: "Hello from the controller", kind: "success" }, opt()),
+    // Gesture-gated: runs in the side panel page, right after this click.
+    permission: () => ext.permissions.request({ permissions: ["bookmarks"] }),
     screenshot: async () => {
       const shot = await ext.capture.screenshot({}, opt());
       const img = Object.assign(document.createElement("img"), { src: shot.dataUrl, className: "shot" });
