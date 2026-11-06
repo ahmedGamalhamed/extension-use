@@ -89,3 +89,48 @@ const off = ext.on("tab.updated", ({ tab, changes }) => {
 });
 ext.on("tab.activated", ({ tabId }) => refreshPanelForTab(tabId));
 ```
+
+## 8. Work in background tabs
+
+Chrome saves resources on tabs the person isn't looking at. It stops painting them, pauses animation frames, slows timers to about once a second (once a minute after a while), and may discard them entirely when memory is low. Agents that work in a tab while the person uses another one run into all of this.
+
+**Keep the tab loaded.** `tabs.update` with `autoDiscardable: false` stops Chrome from discarding it. `tabs.list` shows `discarded: true` for a tab Chrome already unloaded. Any content action on a discarded tab reloads it first, so it works, but the page starts over.
+
+```ts
+await ext.tabs.update({ autoDiscardable: false }, { target: { tab: tabId } });
+```
+
+**Keep it rendering.** While a tab is being captured, Chrome keeps painting it, runs its animation frames and timers at full speed, and won't discard it, even in the background. The opt-in tabCapture group uses this:
+
+```ts
+await ext.tabCapture.start({}, { target: { tab: tabId } }); // keep rendering
+const shot = await ext.capture.screenshot({}, { target: { tab: tabId } }); // no need to bring it to the front
+await ext.tabCapture.stop({}, { target: { tab: tabId } });
+```
+
+`capture.screenshot` and `capture.fullPage` also work on a background tab (or a minimized window) without `tabCapture.start`. They capture the tab for the length of the call. Without the group, they ask you to bring the tab to the front.
+
+Setup, in the extension:
+
+1. Add an offscreen page. The capture stream has to live in a document, and the service worker can't hold one.
+
+   ```html
+   <!-- offscreen.html -->
+   <script type="module" src="offscreen.js"></script>
+   ```
+
+   ```ts
+   // offscreen.ts (no bundler: load vendor/extension-use-offscreen.js as a classic script instead)
+   import { mountOffscreen } from "@extension-use/host/offscreen";
+   mountOffscreen();
+   ```
+
+2. Enable the group and point the host at the page:
+
+   ```ts
+   defineHost({ ..., groups: [...allBuiltinGroups, builtinGroups.tabCapture], offscreen: "offscreen.html" });
+   ```
+
+3. Add the `tabCapture` and `offscreen` permissions (`--groups` with `tabCapture`, or `groups` in `withExtensionUse`).
+
+Chrome lets an extension capture a tab only after the person invoked the extension on that tab: they clicked its toolbar button or opened its side panel there, or used its keyboard shortcut or context menu item. The grant lasts until the tab navigates away or closes. Without it, the call fails with `NEEDS_USER_GESTURE`, and the person has to do one of those things or bring the tab to the front. A captured tab shows Chrome's capture indicator in its tab strip.

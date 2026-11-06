@@ -111,9 +111,10 @@ Every action and its input is typed. Wrong input comes back as `INVALID_INPUT`, 
 | Group | Actions |
 |---|---|
 | Session | `runtime.ping`, `runtime.describe`, `run.sequence` |
-| Tabs and frames | `tabs.list/open/close/activate/navigate/reload/waitForLoad`, `tabs.goBack/goForward`, `tabs.update` (pin, mute, zoom), `frames.list` |
+| Tabs and frames | `tabs.list/open/close/activate/navigate/reload/waitForLoad`, `tabs.goBack/goForward`, `tabs.update` (pin, mute, zoom, `autoDiscardable`), `frames.list` |
 | Windows | `windows.list/open/update/close` (focus, resize, move, minimize, maximize, fullscreen) |
-| Capture | `capture.screenshot` (whole view or one element), `capture.fullPage` (scroll and stitch) |
+| Capture | `capture.screenshot` (whole view or one element), `capture.fullPage` (scroll and stitch); tabs in the background too, with the tabCapture group |
+| Tab capture (opt-in) | `tabCapture.start/stop/list`: keep a tab rendering at full speed in the background |
 | Reading | `page.info`, `dom.snapshot`, `dom.query`, `dom.text`, `dom.html` (current markup, with live form values), `wait.for` |
 | Editing the page | `edit.setHtml` (sanitized: no scripts or event handlers), `edit.setText`, `edit.setAttributes`, `edit.remove` |
 | Mouse | `dom.click` (any button, double-click, modifiers, long press with `holdMs`), `dom.hover`, `dom.drag` (HTML5 drag and drop, or pointer-driven sliders and sortable lists), `dom.pointer` (low-level down/move/up) |
@@ -127,7 +128,7 @@ Every action and its input is typed. Wrong input comes back as `INVALID_INPUT`, 
 | History (opt-in) | `history.search`, `history.delete` |
 | Cookies (opt-in) | `cookies.list/set/remove` |
 
-The opt-in groups reach the person's data outside any page, and each needs its own manifest permission, so no host gets them by default. Enable them by name, for example `groups: [...allBuiltinGroups, builtinGroups.cookies]` in `defineHost`, and `--groups` (or `groups`) for the manifest. Site policy still applies: cookies, downloads and bookmarks of blocked sites are refused, and `javascript:` bookmarks can't be created.
+The opt-in groups reach the person's data outside any page, and each needs its own manifest permission, so no host gets them by default. Enable them by name, for example `groups: [...allBuiltinGroups, builtinGroups.cookies]` in `defineHost`, and `--groups` (or `groups`) for the manifest. The tabCapture group also needs an offscreen page; see [working in background tabs](docs/recipes.md#8-work-in-background-tabs). Site policy still applies: cookies, downloads and bookmarks of blocked sites are refused, and `javascript:` bookmarks can't be created.
 
 Keys behave as they do in a browser:
 - Tab and Shift+Tab move focus in tab order.
