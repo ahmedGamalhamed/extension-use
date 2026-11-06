@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -22,3 +22,22 @@ jobs:
         run: pnpm docs:actions && git diff --exit-code docs/actions.md
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+
+  # cloud/ (proprietary) needs Node 24: built-in SQLite and TypeScript stripping.
+  cloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: npm ci
+        working-directory: cloud
+      - run: npm run typecheck
+        working-directory: cloud
+      - run: npm test
+        working-directory: cloud

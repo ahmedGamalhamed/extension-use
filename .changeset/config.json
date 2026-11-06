@@ -5,7 +5,7 @@
   "fixed": [["@extension-use/*", "create-extension-use"]],
   "linked": [],
   "access": "public",
-  "baseBranch": "master",
+  "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": []
 }
