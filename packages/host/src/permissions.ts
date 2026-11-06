@@ -12,11 +12,13 @@
  *   // Lower level:
  *   const { permissions, host_permissions } = permissionsFor([builtinGroups.dom, builtinGroups.tabs]);
  */
-import { builtinGroups } from "./background/groups.js";
+import { builtinGroups, OPT_IN_GROUPS } from "./background/groups.js";
 import type { ActionGroup } from "./registry.js";
 
 export type GroupName = keyof typeof builtinGroups;
 export const GROUP_NAMES = Object.keys(builtinGroups) as GroupName[];
+/** The groups enabled when none are named: all but the opt-in ones (tabCapture). */
+export const DEFAULT_GROUP_NAMES = GROUP_NAMES.filter((n) => !OPT_IN_GROUPS.includes(n));
 
 export interface PermissionOptions {
   /** Pages the content runtime runs on. Default ["<all_urls>"]. */
@@ -49,7 +51,7 @@ export function permissionsFor(groups: ActionGroup[], options: PermissionOptions
 }
 
 export interface ManifestOptions extends Omit<PermissionOptions, "sidePanel"> {
-  /** Built-in groups the host enables (must match defineHost). Default: all. */
+  /** Built-in groups the host enables (must match defineHost). Default: all but the opt-in tabCapture group. */
   groups?: GroupName[];
   /** Web app origins allowed to connect from a normal tab (externally_connectable). */
   controllerOrigins?: string[];
@@ -66,7 +68,7 @@ export interface ManifestFields {
 
 /** Return a copy of `manifest` with the permissions and externally_connectable entries Extension-use needs. */
 export function withExtensionUse<M extends ManifestFields>(manifest: M, options: ManifestOptions = {}): M {
-  const names = options.groups ?? GROUP_NAMES;
+  const names = options.groups ?? DEFAULT_GROUP_NAMES;
   const unknown = names.filter((n) => !(n in builtinGroups));
   if (unknown.length) throw new Error(`Unknown Extension-use groups: ${unknown.join(", ")}. Known: ${GROUP_NAMES.join(", ")}`);
   const perms = permissionsFor(

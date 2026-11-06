@@ -18,6 +18,8 @@ const jobs = {
     { entryPoints: [join(root, "packages/host/src/ui/index.ts")], outfile: join(root, "packages/host/dist/standalone/extension-use-ui.js"), format: "esm" },
     // ESM: `import { mountFrameBridge } from "./vendor/extension-use-frame.js"` in the side panel page.
     { entryPoints: [join(root, "packages/host/src/frame/index.ts")], outfile: join(root, "packages/host/dist/standalone/extension-use-frame.js"), format: "esm" },
+    // Classic script for the offscreen page (tabCapture group): it mounts itself.
+    { stdin: { contents: `import { mountOffscreen } from "./src/offscreen/index.ts"; mountOffscreen();`, resolveDir: join(root, "packages/host"), loader: "ts" }, outfile: join(root, "packages/host/dist/standalone/extension-use-offscreen.js"), format: "iife" },
   ],
   client: [
     // ESM for the web app: connect, frame, page, ExtensionUseError in one file.

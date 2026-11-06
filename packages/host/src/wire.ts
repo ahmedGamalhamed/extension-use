@@ -39,3 +39,14 @@ export interface UiState {
   remote?: import("./background/remote.js").RemoteUiState;
   error?: string;
 }
+
+/** Messages from the background to the offscreen document that holds tab capture streams. */
+export const OFFSCREEN_MESSAGE = "__extensionUseOffscreen";
+
+export type OffscreenCommand =
+  | { op: "start"; tabId: number; streamId?: string; width?: number; height?: number }
+  | { op: "stop"; tabId: number }
+  | { op: "list" }
+  | { op: "frame"; tabId: number; format: "png" | "jpeg"; quality?: number };
+
+export type OffscreenReply = { ok: true; output: unknown } | { ok: false; error: string };

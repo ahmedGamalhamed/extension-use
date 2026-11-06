@@ -11,6 +11,7 @@ import type { ContentContext, ContentGroup, ContentHandler } from "./context.js"
 import { domContent, pageContent, waitContent } from "./dom.js";
 import { overlayContent, pickerContent, showControlIndicator } from "./overlay.js";
 import { inputHandlers } from "./input.js";
+import { editContent } from "./edit.js";
 
 export type { ContentContext, ContentGroup, ContentHandler } from "./context.js";
 export { roleOf, nameOf, isVisible } from "./aria.js";
@@ -19,6 +20,7 @@ export { resolve as resolveLocator, findAll, describe, refFor, cssPath } from ".
 export const contentGroups = {
   page: pageContent,
   dom: { name: "dom", handlers: { ...domContent.handlers, ...inputHandlers } } satisfies ContentGroup,
+  edit: editContent,
   wait: waitContent,
   overlay: overlayContent,
   picker: pickerContent,

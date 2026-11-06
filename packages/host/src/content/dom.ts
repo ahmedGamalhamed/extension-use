@@ -396,6 +396,39 @@ function snapshotText(node: SnapshotNode, depth = 0, lines: string[] = []): stri
 // Shared with overlay.ts so snapshots skip our own UI.
 export const OVERLAY_HOST_ID = "extension-use-overlay";
 
+/**
+ * HTML of an element as it is now: form fields carry their current values
+ * (attributes alone keep only the initial ones), sensitive values are masked,
+ * and our own overlay is left out.
+ */
+function serialize(el: Element, outer: boolean, mask: boolean): string {
+  // Clone into a document with no window: a clone in the page would load its
+  // images (and fire their onload/onerror) even while detached.
+  const clone = document.implementation.createHTMLDocument("").importNode(el, true);
+  const FIELDS = "input, textarea, select";
+  const live = [...el.querySelectorAll(FIELDS)];
+  const copies = [...clone.querySelectorAll(FIELDS)];
+  if (el.matches(FIELDS)) {
+    live.unshift(el);
+    copies.unshift(clone);
+  }
+  live.forEach((src, i) => {
+    const dst = copies[i];
+    if (!dst) return;
+    const hide = mask && isSensitive(src);
+    if (src instanceof HTMLInputElement) {
+      if (src.type === "checkbox" || src.type === "radio") dst.toggleAttribute("checked", src.checked);
+      else if (src.type !== "file") dst.setAttribute("value", hide && src.value ? "••••" : src.value);
+    } else if (src instanceof HTMLTextAreaElement) {
+      dst.textContent = src.value;
+    } else if (src instanceof HTMLSelectElement) {
+      [...src.options].forEach((o, j) => (dst as HTMLSelectElement).options[j]?.toggleAttribute("selected", o.selected));
+    }
+  });
+  for (const n of clone.querySelectorAll(`#${OVERLAY_HOST_ID}`)) n.remove();
+  return outer ? clone.outerHTML : clone.innerHTML;
+}
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -445,6 +478,13 @@ export const domContent: ContentGroup = {
         nodeCount: snap.nodeCount,
         truncated: snap.truncated,
       };
+    },
+    "dom.html": async (input: In<"dom.html">, ctx) => {
+      const el = input.locator ? await find(input.locator, ctx, false) : document.documentElement;
+      const html = serialize(el, input.outer, ctx.policy.sensitiveFields === "refuse");
+      const doctype = !input.locator && input.outer && document.doctype ? `${new XMLSerializer().serializeToString(document.doctype)}\n` : "";
+      const full = doctype + html;
+      return { html: full.slice(0, input.maxLength), length: full.length, truncated: full.length > input.maxLength };
     },
     "dom.click": async (input: In<"dom.click">, ctx) => {
       const el = await find(input.locator, ctx);

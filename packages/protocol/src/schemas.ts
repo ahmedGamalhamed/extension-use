@@ -55,7 +55,75 @@ export const tabInfoSchema = z.object({
   title: z.string(),
   active: z.boolean(),
   status: z.string(),
+  /** Chrome unloaded the tab to save memory. It reloads when it is activated or reloaded. */
+  discarded: z.boolean().optional(),
+  /** false: Chrome won't discard the tab when memory is low (see tabs.update). */
+  autoDiscardable: z.boolean().optional(),
 });
+
+export const windowInfoSchema = z.object({
+  id: z.number(),
+  focused: z.boolean(),
+  state: z.string(),
+  type: z.string(),
+  incognito: z.boolean(),
+  left: z.number().optional(),
+  top: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  tabCount: z.number(),
+});
+
+export const downloadInfoSchema = z.object({
+  id: z.number(),
+  url: z.string(),
+  /** Full path on disk; empty until Chrome has picked it. */
+  filename: z.string(),
+  state: z.string(),
+  mime: z.string(),
+  bytesReceived: z.number(),
+  totalBytes: z.number(),
+  startTime: z.string(),
+  error: z.string().optional(),
+});
+
+export const bookmarkSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  url: z.string().optional(),
+  parentId: z.string().optional(),
+  index: z.number().optional(),
+  dateAdded: z.number().optional(),
+  folder: z.boolean(),
+});
+
+export const historyItemSchema = z.object({
+  url: z.string(),
+  title: z.string(),
+  lastVisitTime: z.number().optional(),
+  visitCount: z.number(),
+  typedCount: z.number(),
+});
+
+export const cookieSchema = z.object({
+  name: z.string(),
+  value: z.string(),
+  domain: z.string(),
+  path: z.string(),
+  secure: z.boolean(),
+  httpOnly: z.boolean(),
+  sameSite: z.string(),
+  session: z.boolean(),
+  hostOnly: z.boolean(),
+  expirationDate: z.number().optional(),
+});
+
+const windowBoundsShape = {
+  left: z.number().int().optional(),
+  top: z.number().int().optional(),
+  width: z.number().int().min(100).optional(),
+  height: z.number().int().min(100).optional(),
+};
 
 export interface SnapshotNode {
   ref?: string;
@@ -214,11 +282,73 @@ export const coreActionSchemas = {
     { timeoutMs: 30_000 },
   ),
   "tabs.waitForLoad": action("background", "Wait until the target tab has loaded.", empty, tabInfoSchema, { timeoutMs: 30_000 }),
+  "tabs.goBack": action(
+    "background",
+    "Go back one step in the target tab's history.",
+    z.object({ waitForLoad: z.boolean().default(true) }),
+    tabInfoSchema,
+    { timeoutMs: 30_000 },
+  ),
+  "tabs.goForward": action(
+    "background",
+    "Go forward one step in the target tab's history.",
+    z.object({ waitForLoad: z.boolean().default(true) }),
+    tabInfoSchema,
+    { timeoutMs: 30_000 },
+  ),
+  "tabs.update": action(
+    "background",
+    "Pin, mute or zoom the target tab, or keep Chrome from discarding it (autoDiscardable: false) while it works in the background.",
+    z
+      .object({
+        pinned: z.boolean().optional(),
+        muted: z.boolean().optional(),
+        /** Page zoom factor; 1 is 100%. */
+        zoom: z.number().min(0.25).max(5).optional(),
+        /** false: Chrome won't unload the tab to save memory. */
+        autoDiscardable: z.boolean().optional(),
+      })
+      .refine((v) => Object.values(v).some((x) => x !== undefined), { message: "Give pinned, muted, zoom or autoDiscardable" }),
+    tabInfoSchema.extend({ pinned: z.boolean(), muted: z.boolean(), zoom: z.number(), autoDiscardable: z.boolean() }),
+  ),
+
+  // windows ---------------------------------------------------------------
+  "windows.list": action(
+    "background",
+    "List browser windows.",
+    empty,
+    z.object({ windows: z.array(windowInfoSchema) }),
+  ),
+  "windows.open": action(
+    "background",
+    "Open a new browser window, optionally at a URL.",
+    z.object({
+      url: z.string().optional(),
+      focused: z.boolean().default(true),
+      type: z.enum(["normal", "popup"]).default("normal"),
+      ...windowBoundsShape,
+      waitForLoad: z.boolean().default(true),
+    }),
+    windowInfoSchema.extend({ tab: tabInfoSchema.optional() }),
+    { timeoutMs: 30_000 },
+  ),
+  "windows.update": action(
+    "background",
+    "Focus, resize, move, minimize or maximize a window.",
+    z.object({
+      windowId: z.number(),
+      focused: z.boolean().optional(),
+      state: z.enum(["normal", "minimized", "maximized", "fullscreen"]).optional(),
+      ...windowBoundsShape,
+    }),
+    windowInfoSchema,
+  ),
+  "windows.close": action("background", "Close a window and all its tabs.", z.object({ windowId: z.number() }), empty),
 
   // capture ---------------------------------------------------------------
   "capture.screenshot": action(
     "background",
-    "Capture the visible part of the target tab, or crop to one element.",
+    "Capture the visible part of the target tab, or crop to one element. A tab in the background is captured through tab capture (the tabCapture group).",
     z.object({
       format: z.enum(["png", "jpeg"]).default("png"),
       quality: z.number().int().min(0).max(100).optional(),
@@ -227,6 +357,29 @@ export const coreActionSchemas = {
     z.object({ dataUrl: z.string(), width: z.number(), height: z.number() }),
     { timeoutMs: 15_000 },
   ),
+  "capture.fullPage": action(
+    "background",
+    "Capture the whole page by scrolling and stitching. A tab in the background is captured through tab capture (the tabCapture group). Fixed headers may show more than once.",
+    z.object({
+      format: z.enum(["png", "jpeg"]).default("png"),
+      quality: z.number().int().min(0).max(100).optional(),
+      /** Stop after this many CSS pixels of page height. */
+      maxHeight: z.number().int().min(100).max(30_000).default(15_000),
+    }),
+    z.object({ dataUrl: z.string(), width: z.number(), height: z.number(), truncated: z.boolean() }),
+    { timeoutMs: 90_000 },
+  ),
+
+  // tabCapture ------------------------------------------------------------
+  "tabCapture.start": action(
+    "background",
+    "Keep the target tab rendering in the background by capturing it: Chrome keeps painting it, runs its animation frames and timers at full speed, and doesn't discard it. Screenshots of it then work without bringing it to the front. The extension must have been invoked on the tab (toolbar button, side panel, shortcut or context menu) since it last navigated; otherwise this fails with NEEDS_USER_GESTURE.",
+    empty,
+    z.object({ tabId: z.number(), width: z.number(), height: z.number() }),
+    { timeoutMs: 15_000 },
+  ),
+  "tabCapture.stop": action("background", "Stop capturing the target tab, so Chrome can throttle it again.", empty, z.object({ stopped: z.boolean() })),
+  "tabCapture.list": action("background", "List the tabs being captured to keep them rendering.", empty, z.object({ tabIds: z.array(z.number()) })),
 
   // frames ----------------------------------------------------------------
   "frames.list": action(
@@ -300,6 +453,17 @@ export const coreActionSchemas = {
       nodeCount: z.number(),
       truncated: z.boolean(),
     }),
+  ),
+  "dom.html": action(
+    "content",
+    "HTML of the page or of one element. Password and payment field values are masked; shadow roots are not included.",
+    z.object({
+      locator: locatorSchema.optional(),
+      /** Include the element's own tag (outerHTML), or only its children (innerHTML). */
+      outer: z.boolean().default(true),
+      maxLength: z.number().int().min(1).max(5_000_000).default(500_000),
+    }),
+    z.object({ html: z.string(), length: z.number(), truncated: z.boolean() }),
   ),
 
   // dom: interacting --------------------------------------------------------
@@ -460,6 +624,42 @@ export const coreActionSchemas = {
     refOut,
   ),
 
+  // edit: changing the page's DOM -----------------------------------------
+  "edit.setHtml": action(
+    "content",
+    "Replace or insert HTML at an element. The HTML is sanitized first: scripts, frames, plugins, event-handler attributes and javascript: URLs are removed.",
+    z.object({
+      locator: locatorSchema,
+      html: z.string().max(5_000_000),
+      /** inner: replace children; outer: replace the element; or insert next to it (insertAdjacentHTML positions). */
+      position: z.enum(["inner", "outer", "beforebegin", "afterbegin", "beforeend", "afterend"]).default("inner"),
+    }),
+    z.object({
+      /** Refs of the top-level elements that were inserted. */
+      refs: z.array(z.string()),
+      /** Elements and attributes the sanitizer removed. */
+      removed: z.number(),
+    }),
+  ),
+  "edit.setText": action(
+    "content",
+    "Replace an element's text content (removes its children).",
+    z.object({ locator: locatorSchema, text: z.string().max(5_000_000) }),
+    refOut,
+  ),
+  "edit.setAttributes": action(
+    "content",
+    "Set or remove attributes on an element (null removes). Event-handler attributes and javascript: URLs are refused.",
+    z.object({ locator: locatorSchema, attributes: z.record(z.string().min(1), z.string().nullable()) }),
+    z.object({ ref: z.string(), attributes: z.record(z.string(), z.string()) }),
+  ),
+  "edit.remove": action(
+    "content",
+    "Remove elements from the page.",
+    z.object({ locator: locatorSchema, all: z.boolean().default(false) }),
+    z.object({ removed: z.number() }),
+  ),
+
   // wait ------------------------------------------------------------------
   "wait.for": action(
     "content",
@@ -521,6 +721,114 @@ export const coreActionSchemas = {
   ),
   "picker.cancel": action("content", "Stop an active picker.", empty, empty),
 
+  // downloads (opt-in) ----------------------------------------------------
+  "downloads.start": action(
+    "background",
+    "Download a URL to the person's Downloads folder, and by default wait until it finishes.",
+    z.object({
+      url: z.string(),
+      /** Path relative to the Downloads folder. */
+      filename: z.string().min(1).max(255).optional(),
+      conflictAction: z.enum(["uniquify", "overwrite", "prompt"]).default("uniquify"),
+      /** Show the Save As dialog. */
+      saveAs: z.boolean().default(false),
+      waitForComplete: z.boolean().default(true),
+    }),
+    downloadInfoSchema,
+    { timeoutMs: 120_000 },
+  ),
+  "downloads.list": action(
+    "background",
+    "List recent downloads, newest first.",
+    z.object({
+      query: z.string().optional(),
+      state: z.enum(["in_progress", "interrupted", "complete"]).optional(),
+      limit: z.number().int().min(1).max(1000).default(50),
+    }),
+    z.object({ downloads: z.array(downloadInfoSchema) }),
+  ),
+  "downloads.cancel": action("background", "Cancel a download that is in progress.", z.object({ id: z.number() }), empty),
+
+  // bookmarks (opt-in) ----------------------------------------------------
+  "bookmarks.search": action(
+    "background",
+    "Find bookmarks whose title or URL contains the text.",
+    z.object({ query: z.string().min(1), limit: z.number().int().min(1).max(1000).default(100) }),
+    z.object({ bookmarks: z.array(bookmarkSchema) }),
+  ),
+  "bookmarks.list": action(
+    "background",
+    "List the bookmarks and folders inside a folder (default: the top-level folders).",
+    z.object({ parentId: z.string().default("0") }),
+    z.object({ bookmarks: z.array(bookmarkSchema) }),
+  ),
+  "bookmarks.create": action(
+    "background",
+    "Add a bookmark, or a folder when no url is given.",
+    z.object({ title: z.string(), url: z.string().optional(), parentId: z.string().optional(), index: z.number().int().min(0).optional() }),
+    bookmarkSchema,
+  ),
+  "bookmarks.update": action(
+    "background",
+    "Rename a bookmark, change its URL, or move it to another folder or position.",
+    z
+      .object({ id: z.string(), title: z.string().optional(), url: z.string().optional(), parentId: z.string().optional(), index: z.number().int().min(0).optional() })
+      .refine((v) => v.title !== undefined || v.url !== undefined || v.parentId !== undefined || v.index !== undefined, { message: "Give title, url, parentId or index" }),
+    bookmarkSchema,
+  ),
+  "bookmarks.remove": action(
+    "background",
+    "Delete a bookmark, or a folder (a folder with contents needs recursive: true).",
+    z.object({ id: z.string(), recursive: z.boolean().default(false) }),
+    empty,
+  ),
+
+  // history (opt-in) ------------------------------------------------------
+  "history.search": action(
+    "background",
+    "Search the browsing history, most recent first. Times are ms since the epoch.",
+    z.object({
+      text: z.string().default(""),
+      startTime: z.number().optional(),
+      endTime: z.number().optional(),
+      limit: z.number().int().min(1).max(1000).default(100),
+    }),
+    z.object({ items: z.array(historyItemSchema) }),
+  ),
+  "history.delete": action("background", "Remove every visit to a URL from the history.", z.object({ url: z.string() }), empty),
+
+  // cookies (opt-in) ------------------------------------------------------
+  "cookies.list": action(
+    "background",
+    "List cookies for a URL or a domain, optionally by name.",
+    z
+      .object({ url: z.string().optional(), domain: z.string().optional(), name: z.string().optional() })
+      .refine((v) => v.url || v.domain, { message: "Give a url or a domain" }),
+    z.object({ cookies: z.array(cookieSchema) }),
+  ),
+  "cookies.set": action(
+    "background",
+    "Set a cookie. Without expirationDate (seconds since the epoch) it is a session cookie.",
+    z.object({
+      url: z.string(),
+      name: z.string(),
+      value: z.string(),
+      domain: z.string().optional(),
+      path: z.string().optional(),
+      secure: z.boolean().optional(),
+      httpOnly: z.boolean().optional(),
+      sameSite: z.enum(["no_restriction", "lax", "strict", "unspecified"]).optional(),
+      expirationDate: z.number().optional(),
+    }),
+    cookieSchema,
+  ),
+  "cookies.remove": action(
+    "background",
+    "Delete a cookie by URL and name.",
+    z.object({ url: z.string(), name: z.string() }),
+    z.object({ removed: z.boolean() }),
+  ),
+
   // permissions (run in the frame bridge, which has the person's click) ----
   "permissions.contains": action(
     "bridge",
@@ -574,6 +882,7 @@ export type CoreEvents = { [K in keyof typeof coreEventSchemas]: z.output<(typeo
 
 export type ElementInfo = z.output<typeof elementInfoSchema>;
 export type TabInfo = z.output<typeof tabInfoSchema>;
+export type WindowInfo = z.output<typeof windowInfoSchema>;
 export type Box = z.output<typeof boxSchema>;
 
 export { z };

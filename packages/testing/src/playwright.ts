@@ -108,6 +108,8 @@ export interface ExtensionFixtures {
   panelPath: string;
   /** Run the browser headless. Default true (unless HEADED=1). */
   extensionHeadless: boolean;
+  /** Extra Chromium command-line switches. */
+  extensionArgs: string[];
   context: BrowserContext;
   serviceWorker: Worker;
   extensionId: string;
@@ -122,14 +124,15 @@ export const test = base.extend<ExtensionFixtures>({
   extensionPath: ["", { option: true }],
   panelPath: ["sidepanel.html", { option: true }],
   extensionHeadless: [!process.env.HEADED, { option: true }],
+  extensionArgs: [[], { option: true }],
 
-  context: async ({ extensionPath, extensionHeadless }, use) => {
+  context: async ({ extensionPath, extensionHeadless, extensionArgs }, use) => {
     if (!extensionPath) throw new Error("Set `use: { extensionPath: \"path/to/unpacked/extension\" }` in playwright.config");
     const path = resolve(extensionPath);
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium",
       headless: extensionHeadless,
-      args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`],
+      args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`, ...extensionArgs],
     });
     await use(context);
     await context.close();

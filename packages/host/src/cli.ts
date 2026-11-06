@@ -25,7 +25,7 @@ const list = (v: string | undefined) => (v ? v.split(",").map((s) => s.trim()).f
 
 const HELP = `Usage:
   extension-use manifest [options]   Print or write the manifest fields Extension-use needs
-    --groups <list>     Action groups the host enables (default: all). Known: ${GROUP_NAMES.join(", ")}
+    --groups <list>     Action groups the host enables (default: all but the opt-in ones: tabCapture, downloads, bookmarks, history, cookies). Known: ${GROUP_NAMES.join(", ")}
     --origins <list>    Web app origins allowed to connect from a tab (externally_connectable)
     --matches <list>    Pages the content runtime runs on (default <all_urls>)
     --no-side-panel     Don't add the "sidePanel" permission

@@ -52,7 +52,10 @@ Options:
   ```
 
   The agent then calls `dom_click { "locator": { "ref": "e12" } }`.
-- **`capture_screenshot`** returns an image the model can see.
+- **`capture_screenshot`** and **`capture_fullPage`** return an image the model can see.
+- **`dom_html`** returns the page's markup when the agent needs more than the snapshot. Through MCP it is cut at 50,000 characters unless the agent passes `maxLength`, or a `locator` for one part.
+- **`edit_*`** tools change the page (sanitized HTML, text, attributes, removing elements). They are marked destructive, as are `tabs_close`, `windows_close`, `downloads_cancel`, `bookmarks_remove`, `history_delete`, `cookies_set` and `cookies_remove`, so MCP clients can ask before running them. Leave them out with `--exclude "edit.*"`.
+- **Browser data** (`downloads_*`, `bookmarks_*`, `history_*`, `cookies_*`) appears only if the extension enables those opt-in groups. Cookie values can sign someone in as the person, so think twice before giving an agent `cookies.*`.
 - **`run_sequence`** batches known steps into one call (see below).
 - **Errors** come back as tool errors with a code, such as `INVALID_INPUT: locator: …` or `BLOCKED_BY_POLICY: …`. A paused browser returns `BLOCKED_BY_POLICY` with "paused", and the instructions tell the agent to stop and ask you.
 - **No browser yet:** the server offers a single `browser_status` tool that explains what's missing.

@@ -12,14 +12,21 @@ A **target** picks the tab: `{ tab?: "active" | tabId | { urlMatch }, frame?: "t
 
 - **runtime**: [`runtime.ping`](#runtimeping), [`runtime.describe`](#runtimedescribe)
 - **run**: [`run.sequence`](#runsequence)
-- **tabs**: [`tabs.list`](#tabslist), [`tabs.open`](#tabsopen), [`tabs.close`](#tabsclose), [`tabs.activate`](#tabsactivate), [`tabs.navigate`](#tabsnavigate), [`tabs.reload`](#tabsreload), [`tabs.waitForLoad`](#tabswaitforload)
-- **capture**: [`capture.screenshot`](#capturescreenshot)
+- **tabs**: [`tabs.list`](#tabslist), [`tabs.open`](#tabsopen), [`tabs.close`](#tabsclose), [`tabs.activate`](#tabsactivate), [`tabs.navigate`](#tabsnavigate), [`tabs.reload`](#tabsreload), [`tabs.waitForLoad`](#tabswaitforload), [`tabs.goBack`](#tabsgoback), [`tabs.goForward`](#tabsgoforward), [`tabs.update`](#tabsupdate)
+- **windows**: [`windows.list`](#windowslist), [`windows.open`](#windowsopen), [`windows.update`](#windowsupdate), [`windows.close`](#windowsclose)
+- **capture**: [`capture.screenshot`](#capturescreenshot), [`capture.fullPage`](#capturefullpage)
+- **tabCapture**: [`tabCapture.start`](#tabcapturestart), [`tabCapture.stop`](#tabcapturestop), [`tabCapture.list`](#tabcapturelist)
 - **frames**: [`frames.list`](#frameslist)
 - **page**: [`page.info`](#pageinfo), [`page.scroll`](#pagescroll)
-- **dom**: [`dom.query`](#domquery), [`dom.text`](#domtext), [`dom.snapshot`](#domsnapshot), [`dom.click`](#domclick), [`dom.hover`](#domhover), [`dom.focus`](#domfocus), [`dom.type`](#domtype), [`dom.fill`](#domfill), [`dom.select`](#domselect), [`dom.check`](#domcheck), [`dom.press`](#dompress), [`dom.blur`](#domblur), [`dom.drag`](#domdrag), [`dom.upload`](#domupload), [`dom.scroll`](#domscroll), [`dom.wheel`](#domwheel), [`dom.selectText`](#domselecttext), [`dom.paste`](#dompaste), [`dom.pointer`](#dompointer), [`dom.scrollTo`](#domscrollto)
+- **dom**: [`dom.query`](#domquery), [`dom.text`](#domtext), [`dom.snapshot`](#domsnapshot), [`dom.html`](#domhtml), [`dom.click`](#domclick), [`dom.hover`](#domhover), [`dom.focus`](#domfocus), [`dom.type`](#domtype), [`dom.fill`](#domfill), [`dom.select`](#domselect), [`dom.check`](#domcheck), [`dom.press`](#dompress), [`dom.blur`](#domblur), [`dom.drag`](#domdrag), [`dom.upload`](#domupload), [`dom.scroll`](#domscroll), [`dom.wheel`](#domwheel), [`dom.selectText`](#domselecttext), [`dom.paste`](#dompaste), [`dom.pointer`](#dompointer), [`dom.scrollTo`](#domscrollto)
+- **edit**: [`edit.setHtml`](#editsethtml), [`edit.setText`](#editsettext), [`edit.setAttributes`](#editsetattributes), [`edit.remove`](#editremove)
 - **wait**: [`wait.for`](#waitfor)
 - **overlay**: [`overlay.highlight`](#overlayhighlight), [`overlay.clear`](#overlayclear), [`overlay.toast`](#overlaytoast)
 - **picker**: [`picker.start`](#pickerstart), [`picker.cancel`](#pickercancel)
+- **downloads**: [`downloads.start`](#downloadsstart), [`downloads.list`](#downloadslist), [`downloads.cancel`](#downloadscancel)
+- **bookmarks**: [`bookmarks.search`](#bookmarkssearch), [`bookmarks.list`](#bookmarkslist), [`bookmarks.create`](#bookmarkscreate), [`bookmarks.update`](#bookmarksupdate), [`bookmarks.remove`](#bookmarksremove)
+- **history**: [`history.search`](#historysearch), [`history.delete`](#historydelete)
+- **cookies**: [`cookies.list`](#cookieslist), [`cookies.set`](#cookiesset), [`cookies.remove`](#cookiesremove)
 - **permissions**: [`permissions.contains`](#permissionscontains), [`permissions.request`](#permissionsrequest), [`permissions.getAll`](#permissionsgetall)
 - [Events](#events)
 
@@ -103,7 +110,7 @@ Runs in extension background.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `tabs` | `{ id: number; windowId: number; url: string; title: string; active: boolean; status: string }[]` | yes |  |
+| `tabs` | `{ id: number; windowId: number; url: string; title: string; active: boolean; status: string; discarded?: boolean; autoDiscardable?: boolean }[]` | yes |  |
 
 ### `tabs.open`
 
@@ -129,6 +136,8 @@ Runs in extension background. Default timeout 30 s.
 | `title` | `string` | yes |  |
 | `active` | `boolean` | yes |  |
 | `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
 
 ### `tabs.close`
 
@@ -168,6 +177,8 @@ Runs in extension background.
 | `title` | `string` | yes |  |
 | `active` | `boolean` | yes |  |
 | `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
 
 ### `tabs.navigate`
 
@@ -192,6 +203,8 @@ Runs in extension background. Default timeout 30 s.
 | `title` | `string` | yes |  |
 | `active` | `boolean` | yes |  |
 | `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
 
 ### `tabs.reload`
 
@@ -215,6 +228,8 @@ Runs in extension background. Default timeout 30 s.
 | `title` | `string` | yes |  |
 | `active` | `boolean` | yes |  |
 | `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
 
 ### `tabs.waitForLoad`
 
@@ -236,12 +251,197 @@ _No fields._
 | `title` | `string` | yes |  |
 | `active` | `boolean` | yes |  |
 | `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
+
+### `tabs.goBack`
+
+Go back one step in the target tab's history.
+
+Runs in extension background. Default timeout 30 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `waitForLoad` | `boolean` |  | default `true` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+| `windowId` | `number` | yes |  |
+| `url` | `string` | yes |  |
+| `title` | `string` | yes |  |
+| `active` | `boolean` | yes |  |
+| `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
+
+### `tabs.goForward`
+
+Go forward one step in the target tab's history.
+
+Runs in extension background. Default timeout 30 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `waitForLoad` | `boolean` |  | default `true` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+| `windowId` | `number` | yes |  |
+| `url` | `string` | yes |  |
+| `title` | `string` | yes |  |
+| `active` | `boolean` | yes |  |
+| `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` |  |  |
+
+### `tabs.update`
+
+Pin, mute or zoom the target tab, or keep Chrome from discarding it (autoDiscardable: false) while it works in the background.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `pinned` | `boolean` |  |  |
+| `muted` | `boolean` |  |  |
+| `zoom` | `number` |  | min 0.25, max 5 |
+| `autoDiscardable` | `boolean` |  |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+| `windowId` | `number` | yes |  |
+| `url` | `string` | yes |  |
+| `title` | `string` | yes |  |
+| `active` | `boolean` | yes |  |
+| `status` | `string` | yes |  |
+| `discarded` | `boolean` |  |  |
+| `autoDiscardable` | `boolean` | yes |  |
+| `pinned` | `boolean` | yes |  |
+| `muted` | `boolean` | yes |  |
+| `zoom` | `number` | yes |  |
+
+## windows
+
+### `windows.list`
+
+List browser windows.
+
+Runs in extension background.
+
+**Input**
+
+_No fields._
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `windows` | `{ id: number; focused: boolean; state: string; type: string; incognito: boolean; left?: number; top?: number; width?: number; height?: number; tabCount: number }[]` | yes |  |
+
+### `windows.open`
+
+Open a new browser window, optionally at a URL.
+
+Runs in extension background. Default timeout 30 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | `string` |  |  |
+| `focused` | `boolean` |  | default `true` |
+| `type` | `"normal" \| "popup"` |  | default `"normal"` |
+| `left` | `number` |  | min -9007199254740991, max 9007199254740991 |
+| `top` | `number` |  | min -9007199254740991, max 9007199254740991 |
+| `width` | `number` |  | min 100, max 9007199254740991 |
+| `height` | `number` |  | min 100, max 9007199254740991 |
+| `waitForLoad` | `boolean` |  | default `true` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+| `focused` | `boolean` | yes |  |
+| `state` | `string` | yes |  |
+| `type` | `string` | yes |  |
+| `incognito` | `boolean` | yes |  |
+| `left` | `number` |  |  |
+| `top` | `number` |  |  |
+| `width` | `number` |  |  |
+| `height` | `number` |  |  |
+| `tabCount` | `number` | yes |  |
+| `tab` | `{ id: number; windowId: number; url: string; title: string; active: boolean; status: string; discarded?: boolean; autoDiscardable?: boolean }` |  |  |
+
+### `windows.update`
+
+Focus, resize, move, minimize or maximize a window.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `windowId` | `number` | yes |  |
+| `focused` | `boolean` |  |  |
+| `state` | `"normal" \| "minimized" \| "maximized" \| "fullscreen"` |  |  |
+| `left` | `number` |  | min -9007199254740991, max 9007199254740991 |
+| `top` | `number` |  | min -9007199254740991, max 9007199254740991 |
+| `width` | `number` |  | min 100, max 9007199254740991 |
+| `height` | `number` |  | min 100, max 9007199254740991 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+| `focused` | `boolean` | yes |  |
+| `state` | `string` | yes |  |
+| `type` | `string` | yes |  |
+| `incognito` | `boolean` | yes |  |
+| `left` | `number` |  |  |
+| `top` | `number` |  |  |
+| `width` | `number` |  |  |
+| `height` | `number` |  |  |
+| `tabCount` | `number` | yes |  |
+
+### `windows.close`
+
+Close a window and all its tabs.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `windowId` | `number` | yes |  |
+
+**Output**
+
+_No fields._
 
 ## capture
 
 ### `capture.screenshot`
 
-Capture the visible part of the target tab, or crop to one element.
+Capture the visible part of the target tab, or crop to one element. A tab in the background is captured through tab capture (the tabCapture group).
 
 Runs in extension background. Default timeout 15 s.
 
@@ -260,6 +460,81 @@ Runs in extension background. Default timeout 15 s.
 | `dataUrl` | `string` | yes |  |
 | `width` | `number` | yes |  |
 | `height` | `number` | yes |  |
+
+### `capture.fullPage`
+
+Capture the whole page by scrolling and stitching. A tab in the background is captured through tab capture (the tabCapture group). Fixed headers may show more than once.
+
+Runs in extension background. Default timeout 90 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `format` | `"png" \| "jpeg"` |  | default `"png"` |
+| `quality` | `number` |  | min 0, max 100 |
+| `maxHeight` | `number` |  | default `15000`, min 100, max 30000 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `dataUrl` | `string` | yes |  |
+| `width` | `number` | yes |  |
+| `height` | `number` | yes |  |
+| `truncated` | `boolean` | yes |  |
+
+## tabCapture
+
+### `tabCapture.start`
+
+Keep the target tab rendering in the background by capturing it: Chrome keeps painting it, runs its animation frames and timers at full speed, and doesn't discard it. Screenshots of it then work without bringing it to the front. The extension must have been invoked on the tab (toolbar button, side panel, shortcut or context menu) since it last navigated; otherwise this fails with NEEDS_USER_GESTURE.
+
+Runs in extension background. Default timeout 15 s.
+
+**Input**
+
+_No fields._
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `tabId` | `number` | yes |  |
+| `width` | `number` | yes |  |
+| `height` | `number` | yes |  |
+
+### `tabCapture.stop`
+
+Stop capturing the target tab, so Chrome can throttle it again.
+
+Runs in extension background.
+
+**Input**
+
+_No fields._
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `stopped` | `boolean` | yes |  |
+
+### `tabCapture.list`
+
+List the tabs being captured to keep them rendering.
+
+Runs in extension background.
+
+**Input**
+
+_No fields._
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `tabIds` | `number[]` | yes |  |
 
 ## frames
 
@@ -391,6 +666,28 @@ Runs in the page (content runtime).
 | `root` | `SnapshotNode` |  |  |
 | `text` | `string` |  |  |
 | `nodeCount` | `number` | yes |  |
+| `truncated` | `boolean` | yes |  |
+
+### `dom.html`
+
+HTML of the page or of one element. Password and payment field values are masked; shadow roots are not included.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` |  |  |
+| `outer` | `boolean` |  | default `true` |
+| `maxLength` | `number` |  | default `500000`, min 1, max 5000000 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `html` | `string` | yes |  |
+| `length` | `number` | yes |  |
 | `truncated` | `boolean` | yes |  |
 
 ### `dom.click`
@@ -750,6 +1047,87 @@ Runs in the page (content runtime).
 |---|---|---|---|
 | `ref` | `string` | yes |  |
 
+## edit
+
+### `edit.setHtml`
+
+Replace or insert HTML at an element. The HTML is sanitized first: scripts, frames, plugins, event-handler attributes and javascript: URLs are removed.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `html` | `string` | yes | max length 5000000 |
+| `position` | `"inner" \| "outer" \| "beforebegin" \| "afterbegin" \| "beforeend" \| "afterend"` |  | default `"inner"` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `refs` | `string[]` | yes |  |
+| `removed` | `number` | yes |  |
+
+### `edit.setText`
+
+Replace an element's text content (removes its children).
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `text` | `string` | yes | max length 5000000 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` | yes |  |
+
+### `edit.setAttributes`
+
+Set or remove attributes on an element (null removes). Event-handler attributes and javascript: URLs are refused.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `attributes` | `Record<string, string,null>` | yes |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `ref` | `string` | yes |  |
+| `attributes` | `Record<string, string>` | yes |  |
+
+### `edit.remove`
+
+Remove elements from the page.
+
+Runs in the page (content runtime).
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `locator` | `Locator` | yes |  |
+| `all` | `boolean` |  | default `false` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `removed` | `number` | yes |  |
+
 ## wait
 
 ### `wait.for`
@@ -868,6 +1246,300 @@ _No fields._
 
 _No fields._
 
+## downloads
+
+### `downloads.start`
+
+Download a URL to the person's Downloads folder, and by default wait until it finishes.
+
+Runs in extension background. Default timeout 120 s.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | `string` | yes |  |
+| `filename` | `string` |  | max length 255 |
+| `conflictAction` | `"uniquify" \| "overwrite" \| "prompt"` |  | default `"uniquify"` |
+| `saveAs` | `boolean` |  | default `false` |
+| `waitForComplete` | `boolean` |  | default `true` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+| `url` | `string` | yes |  |
+| `filename` | `string` | yes |  |
+| `state` | `string` | yes |  |
+| `mime` | `string` | yes |  |
+| `bytesReceived` | `number` | yes |  |
+| `totalBytes` | `number` | yes |  |
+| `startTime` | `string` | yes |  |
+| `error` | `string` |  |  |
+
+### `downloads.list`
+
+List recent downloads, newest first.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `query` | `string` |  |  |
+| `state` | `"in_progress" \| "interrupted" \| "complete"` |  |  |
+| `limit` | `number` |  | default `50`, min 1, max 1000 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `downloads` | `{ id: number; url: string; filename: string; state: string; mime: string; bytesReceived: number; totalBytes: number; startTime: string; error?: string }[]` | yes |  |
+
+### `downloads.cancel`
+
+Cancel a download that is in progress.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `number` | yes |  |
+
+**Output**
+
+_No fields._
+
+## bookmarks
+
+### `bookmarks.search`
+
+Find bookmarks whose title or URL contains the text.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `query` | `string` | yes |  |
+| `limit` | `number` |  | default `100`, min 1, max 1000 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `bookmarks` | `{ id: string; title: string; url?: string; parentId?: string; index?: number; dateAdded?: number; folder: boolean }[]` | yes |  |
+
+### `bookmarks.list`
+
+List the bookmarks and folders inside a folder (default: the top-level folders).
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `parentId` | `string` |  | default `"0"` |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `bookmarks` | `{ id: string; title: string; url?: string; parentId?: string; index?: number; dateAdded?: number; folder: boolean }[]` | yes |  |
+
+### `bookmarks.create`
+
+Add a bookmark, or a folder when no url is given.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `title` | `string` | yes |  |
+| `url` | `string` |  |  |
+| `parentId` | `string` |  |  |
+| `index` | `number` |  | min 0, max 9007199254740991 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `string` | yes |  |
+| `title` | `string` | yes |  |
+| `url` | `string` |  |  |
+| `parentId` | `string` |  |  |
+| `index` | `number` |  |  |
+| `dateAdded` | `number` |  |  |
+| `folder` | `boolean` | yes |  |
+
+### `bookmarks.update`
+
+Rename a bookmark, change its URL, or move it to another folder or position.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `string` | yes |  |
+| `title` | `string` |  |  |
+| `url` | `string` |  |  |
+| `parentId` | `string` |  |  |
+| `index` | `number` |  | min 0, max 9007199254740991 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `string` | yes |  |
+| `title` | `string` | yes |  |
+| `url` | `string` |  |  |
+| `parentId` | `string` |  |  |
+| `index` | `number` |  |  |
+| `dateAdded` | `number` |  |  |
+| `folder` | `boolean` | yes |  |
+
+### `bookmarks.remove`
+
+Delete a bookmark, or a folder (a folder with contents needs recursive: true).
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | `string` | yes |  |
+| `recursive` | `boolean` |  | default `false` |
+
+**Output**
+
+_No fields._
+
+## history
+
+### `history.search`
+
+Search the browsing history, most recent first. Times are ms since the epoch.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `text` | `string` |  | default `""` |
+| `startTime` | `number` |  |  |
+| `endTime` | `number` |  |  |
+| `limit` | `number` |  | default `100`, min 1, max 1000 |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `items` | `{ url: string; title: string; lastVisitTime?: number; visitCount: number; typedCount: number }[]` | yes |  |
+
+### `history.delete`
+
+Remove every visit to a URL from the history.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | `string` | yes |  |
+
+**Output**
+
+_No fields._
+
+## cookies
+
+### `cookies.list`
+
+List cookies for a URL or a domain, optionally by name.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | `string` |  |  |
+| `domain` | `string` |  |  |
+| `name` | `string` |  |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `cookies` | `{ name: string; value: string; domain: string; path: string; secure: boolean; httpOnly: boolean; sameSite: string; session: boolean; hostOnly: boolean; expirationDate?: number }[]` | yes |  |
+
+### `cookies.set`
+
+Set a cookie. Without expirationDate (seconds since the epoch) it is a session cookie.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | `string` | yes |  |
+| `name` | `string` | yes |  |
+| `value` | `string` | yes |  |
+| `domain` | `string` |  |  |
+| `path` | `string` |  |  |
+| `secure` | `boolean` |  |  |
+| `httpOnly` | `boolean` |  |  |
+| `sameSite` | `"no_restriction" \| "lax" \| "strict" \| "unspecified"` |  |  |
+| `expirationDate` | `number` |  |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `name` | `string` | yes |  |
+| `value` | `string` | yes |  |
+| `domain` | `string` | yes |  |
+| `path` | `string` | yes |  |
+| `secure` | `boolean` | yes |  |
+| `httpOnly` | `boolean` | yes |  |
+| `sameSite` | `string` | yes |  |
+| `session` | `boolean` | yes |  |
+| `hostOnly` | `boolean` | yes |  |
+| `expirationDate` | `number` |  |  |
+
+### `cookies.remove`
+
+Delete a cookie by URL and name.
+
+Runs in extension background.
+
+**Input**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | `string` | yes |  |
+| `name` | `string` | yes |  |
+
+**Output**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `removed` | `boolean` | yes |  |
+
 ## permissions
 
 ### `permissions.contains`
@@ -933,7 +1605,7 @@ Subscribe with `ext.on(name, handler)`. Patterns like `"tab.*"` work.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `tab` | `{ id: number; windowId: number; url: string; title: string; active: boolean; status: string }` | yes |  |
+| `tab` | `{ id: number; windowId: number; url: string; title: string; active: boolean; status: string; discarded?: boolean; autoDiscardable?: boolean }` | yes |  |
 | `changes` | `Record<string, unknown>` | yes |  |
 
 ### `tab.activated`

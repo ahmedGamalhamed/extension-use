@@ -7,11 +7,12 @@ import { ExtensionUseError, matchAny, matchPattern, type Envelope, type Target }
 import type { ActionDef, ActionGroup, ResolvedTab, SessionInfo } from "../registry.js";
 import { CONTENT_MESSAGE, CONTENT_EVENT, CONTENT_CANCEL, FRAME_PORT, UI_PORT, type BridgeHello, type UiCommand, type UiReply, type UiState } from "../wire.js";
 import { envelope, randomId as newId, type ResultEnvelope } from "@extension-use/protocol";
-import { allBuiltinGroups } from "./groups.js";
+import { allBuiltinGroups, waitForLoad } from "./groups.js";
 import { setupRemote, type RemoteConfig } from "./remote.js";
+import { configureTabCapture } from "./tab-capture.js";
 import { createRouter, type AuditEntry, type Policy } from "./router.js";
 
-export { builtinGroups, allBuiltinGroups } from "./groups.js";
+export { builtinGroups, allBuiltinGroups, OPT_IN_GROUPS } from "./groups.js";
 export { createRemoteLink, type RemoteLink, type RemoteLinkOptions, type RemoteState } from "./remote-link.js";
 export type { RemoteConfig, RemoteUiState, PairingState } from "./remote.js";
 export type { UiCommand, UiState } from "../wire.js";
@@ -56,6 +57,13 @@ export interface HostOptions {
    * "scripting" permission).
    */
   contentScript?: string;
+  /**
+   * Path of an extension page that calls mountOffscreen() from
+   * "@extension-use/host/offscreen" (e.g. "offscreen.html"). The tabCapture
+   * group holds its capture streams there, and screenshots of background tabs
+   * read frames from it.
+   */
+  offscreen?: string;
   defaultTimeoutMs?: number;
   onAudit?(entry: AuditEntry): void;
   debug?: boolean;
@@ -63,6 +71,7 @@ export interface HostOptions {
 
 export function defineHost(options: HostOptions) {
   const groups = options.groups ?? allBuiltinGroups;
+  configureTabCapture(options.offscreen);
   const actions = [...groups.flatMap((g) => g.actions), ...(options.actions ?? [])];
 
   const router = createRouter({
@@ -84,16 +93,24 @@ export function defineHost(options: HostOptions) {
       resolveTab,
       async sendToContent(tab, frameId, req) {
         const message = { [CONTENT_MESSAGE]: req };
-        let response: unknown;
-        try {
-          response = await chrome.tabs.sendMessage(tab.tabId, message, { frameId });
-        } catch (err) {
-          if (!options.contentScript || !isNoReceiver(err)) throw toContentError(err);
-          await chrome.scripting.executeScript({ target: { tabId: tab.tabId, frameIds: [frameId] }, files: [options.contentScript] });
-          response = await chrome.tabs.sendMessage(tab.tabId, message, { frameId }).catch((e) => {
-            throw toContentError(e);
+        const NO_RECEIVER = Symbol();
+        const send = () =>
+          chrome.tabs.sendMessage(tab.tabId, message, { frameId }).catch((err: unknown) => {
+            if (isNoReceiver(err)) return NO_RECEIVER;
+            throw toContentError(err);
           });
+        let response: unknown = await send();
+        // A discarded tab has no page to talk to: reload it, then try again.
+        if (response === NO_RECEIVER && (await chrome.tabs.get(tab.tabId).catch(() => undefined))?.discarded) {
+          await chrome.tabs.reload(tab.tabId);
+          await waitForLoad(tab.tabId, AbortSignal.timeout(30_000));
+          response = await send();
         }
+        if (response === NO_RECEIVER && options.contentScript) {
+          await chrome.scripting.executeScript({ target: { tabId: tab.tabId, frameIds: [frameId] }, files: [options.contentScript] });
+          response = await send();
+        }
+        if (response === NO_RECEIVER) throw toContentError(new Error("Receiving end does not exist"));
         const r = response as { ok: boolean; output?: unknown; error?: unknown } | undefined;
         if (!r) throw new ExtensionUseError("INTERNAL", "The content runtime did not answer");
         if (!r.ok) throw ExtensionUseError.from(r.error);

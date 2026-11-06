@@ -119,7 +119,7 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
         name: toolName(a.name),
         description: describeTool(a),
         inputSchema: { type: "object", properties, ...(input.required?.length ? { required: input.required } : {}) },
-        annotations: { readOnlyHint: READ_ONLY.has(a.name), destructiveHint: false, openWorldHint: true },
+        annotations: { readOnlyHint: READ_ONLY.has(a.name), destructiveHint: DESTRUCTIVE.has(a.name), openWorldHint: true },
       } as Tool;
     });
     return { tools };
@@ -143,6 +143,8 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
         input.format ??= "text";
         input.viewportOnly ??= true;
       }
+      // Whole pages of HTML swamp a model's context; ask for more when needed.
+      if (action === "dom.html") input.maxLength ??= 50_000;
       const c = await ext();
       const output = await c.callRaw(action, input, {
         ...(target ? { target: target as never } : {}),
@@ -164,14 +166,49 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
   };
 }
 
-const READ_ONLY = new Set(["runtime.ping", "tabs.list", "frames.list", "page.info", "dom.query", "dom.text", "dom.snapshot", "wait.for", "capture.screenshot", "permissions.contains", "permissions.getAll"]);
+const READ_ONLY = new Set([
+  "runtime.ping",
+  "tabs.list",
+  "windows.list",
+  "frames.list",
+  "page.info",
+  "dom.query",
+  "dom.text",
+  "dom.snapshot",
+  "dom.html",
+  "wait.for",
+  "capture.screenshot",
+  "capture.fullPage",
+  "permissions.contains",
+  "permissions.getAll",
+  "downloads.list",
+  "bookmarks.search",
+  "bookmarks.list",
+  "history.search",
+  "cookies.list",
+]);
+const DESTRUCTIVE = new Set([
+  "tabs.close",
+  "windows.close",
+  "edit.setHtml",
+  "edit.setText",
+  "edit.remove",
+  "downloads.cancel",
+  "bookmarks.remove",
+  "history.delete",
+  "cookies.set",
+  "cookies.remove",
+]);
+const IMAGE_ACTIONS = new Set(["capture.screenshot", "capture.fullPage"]);
 
 function describeTool(a: Described) {
   const extra =
     a.name === "dom.snapshot"
       ? " Returns a text tree; interactive elements carry [ref=…] for use in locators. Defaults: format text, viewportOnly true (set false for the whole page)."
-      : a.name === "capture.screenshot"
+      : IMAGE_ACTIONS.has(a.name)
         ? " Returns an image. The tab must be the visible one in its window (tabs_activate first)."
+        : a.name === "dom.html"
+          ? " Prefer dom_snapshot or dom_text for reading; use this when you need the markup. Default maxLength here is 50000; pass a locator to get one part."
         : a.where === "content"
           ? " Locators: { ref } from dom_snapshot is most reliable; also { role, name }, { text }, { testId }, { css }."
           : "";
@@ -191,10 +228,16 @@ function format(action: string, output: unknown): CallToolResult {
     const o = output as { text?: string; nodeCount: number; truncated: boolean };
     if (o.text !== undefined) return text(`${o.text}${o.truncated ? "\n(truncated: pass maxNodes or viewportOnly to see other parts)" : ""}`);
   }
-  if (action === "capture.screenshot") {
-    const o = output as { dataUrl: string; width: number; height: number };
+  if (IMAGE_ACTIONS.has(action)) {
+    const o = output as { dataUrl: string; width: number; height: number; truncated?: boolean };
     const m = /^data:([^;]+);base64,(.*)$/.exec(o.dataUrl);
-    if (m) return { content: [{ type: "image", mimeType: m[1]!, data: m[2]! }, { type: "text", text: `${o.width}×${o.height}` }] };
+    const size = `${o.width}×${o.height}${o.truncated ? " (truncated: the page is taller; pass maxHeight)" : ""}`;
+    if (m) return { content: [{ type: "image", mimeType: m[1]!, data: m[2]! }, { type: "text", text: size }] };
+  }
+  if (action === "dom.html") {
+    const o = output as { html: string; length: number; truncated: boolean };
+    return text(`${o.html}${o.truncated ? `
+(truncated at ${o.html.length} of ${o.length} characters: pass a locator or a larger maxLength)` : ""}`);
   }
   if (action === "dom.text") {
     const o = output as { text: string; truncated: boolean };

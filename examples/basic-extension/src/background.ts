@@ -1,4 +1,4 @@
-import { defineHost } from "@extension-use/host/background";
+import { allBuiltinGroups, builtinGroups, defineHost } from "@extension-use/host/background";
 
 declare const CONTROLLER_ORIGIN: string;
 
@@ -13,6 +13,11 @@ defineHost({
     // Scripts and agents through a relay the person pairs with in control.html.
     remote: {},
   },
+  // The defaults plus the opt-in groups: tabCapture keeps background tabs rendering
+  // and screenshots them; the browser-data groups reach downloads, bookmarks,
+  // history and cookies.
+  groups: [...allBuiltinGroups, builtinGroups.tabCapture, builtinGroups.downloads, builtinGroups.bookmarks, builtinGroups.history, builtinGroups.cookies],
+  offscreen: "offscreen.html",
   contentScript: "content.js",
   debug: true,
 });

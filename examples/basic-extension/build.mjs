@@ -19,6 +19,7 @@ await build({
     background: join(here, "src/background.ts"),
     sidepanel: join(here, "src/sidepanel.ts"),
     control: join(here, "src/control.ts"),
+    offscreen: join(here, "src/offscreen.ts"),
   },
   outdir: out,
   bundle: true,
@@ -42,9 +43,9 @@ await build({
 // Work out permissions from the action groups the host enables.
 const perms = await build({
   stdin: {
-    contents: `import { allBuiltinGroups } from "@extension-use/host/background";
+    contents: `import { allBuiltinGroups, builtinGroups } from "@extension-use/host/background";
                import { permissionsFor } from "@extension-use/host/permissions";
-               export default permissionsFor(allBuiltinGroups, { sidePanel: true, remote: true });`,
+               export default permissionsFor([...allBuiltinGroups, builtinGroups.tabCapture, builtinGroups.downloads, builtinGroups.bookmarks, builtinGroups.history, builtinGroups.cookies], { sidePanel: true, remote: true });`,
     resolveDir: here,
     loader: "ts",
   },
@@ -78,5 +79,6 @@ const manifest = {
 await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
 await cp(join(here, "sidepanel.html"), join(out, "sidepanel.html"));
 await cp(join(here, "control.html"), join(out, "control.html"));
+await cp(join(here, "offscreen.html"), join(out, "offscreen.html"));
 
 console.log(`Built example extension (${id}) → ${out}\n  controller: ${controllerUrl}\n  permissions: ${[...permissions.permissions, ...permissions.host_permissions].join(", ")}`);

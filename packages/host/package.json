@@ -24,6 +24,11 @@
       "types": "./dist/frame/index.d.ts",
       "default": "./dist/frame/index.js"
     },
+    "./offscreen": {
+      "source": "./src/offscreen/index.ts",
+      "types": "./dist/offscreen/index.d.ts",
+      "default": "./dist/offscreen/index.js"
+    },
     "./ui": {
       "source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
@@ -41,7 +46,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/background/index.ts src/content/index.ts src/frame/index.ts src/ui/index.ts src/permissions.ts src/cli.ts --format esm --dts --clean && node ../../scripts/standalone.mjs host"
+    "build": "tsup src/background/index.ts src/content/index.ts src/frame/index.ts src/offscreen/index.ts src/ui/index.ts src/permissions.ts src/cli.ts --format esm --dts --clean && node ../../scripts/standalone.mjs host"
   },
   "dependencies": {
     "@extension-use/protocol": "workspace:*",

@@ -1,6 +1,6 @@
 # Extension-use
 
-Let a web app, a website, or a script, server or AI agent (through a relay) drive your browser extension through a fixed, typed and declarative set of actions: read the page, click, type, highlight, pick elements, manage tabs, take screenshots.
+Let a web app, a website, or a script, server or AI agent (through a relay) drive your browser extension through a fixed, typed and declarative set of actions: read and edit the page, click, type, highlight, pick elements, manage tabs and windows, take screenshots.
 
 ```
 web app (iframe in side panel)  ──postMessage──▶  frame bridge ─┐
@@ -106,19 +106,28 @@ Every action and its input is typed. Wrong input comes back as `INVALID_INPUT`, 
 
 ## Built-in actions
 
-43 actions. The full inputs and outputs are in the [action reference](docs/actions.md).
+72 actions. The full inputs and outputs are in the [action reference](docs/actions.md).
 
 | Group | Actions |
 |---|---|
 | Session | `runtime.ping`, `runtime.describe`, `run.sequence` |
-| Tabs and frames | `tabs.list/open/close/activate/navigate/reload/waitForLoad`, `frames.list`, `capture.screenshot` (whole view or one element) |
-| Reading | `page.info`, `dom.snapshot`, `dom.query`, `dom.text`, `wait.for` |
+| Tabs and frames | `tabs.list/open/close/activate/navigate/reload/waitForLoad`, `tabs.goBack/goForward`, `tabs.update` (pin, mute, zoom), `frames.list` |
+| Windows | `windows.list/open/update/close` (focus, resize, move, minimize, maximize, fullscreen) |
+| Capture | `capture.screenshot` (whole view or one element), `capture.fullPage` (scroll and stitch) |
+| Reading | `page.info`, `dom.snapshot`, `dom.query`, `dom.text`, `dom.html` (current markup, with live form values), `wait.for` |
+| Editing the page | `edit.setHtml` (sanitized: no scripts or event handlers), `edit.setText`, `edit.setAttributes`, `edit.remove` |
 | Mouse | `dom.click` (any button, double-click, modifiers, long press with `holdMs`), `dom.hover`, `dom.drag` (HTML5 drag and drop, or pointer-driven sliders and sortable lists), `dom.pointer` (low-level down/move/up) |
 | Keyboard and text | `dom.type`, `dom.fill`, `dom.press`, `dom.paste`, `dom.selectText`, `dom.focus`, `dom.blur` |
 | Forms | `dom.select`, `dom.check`, `dom.upload` (file inputs, including hidden ones, and drop zones) |
 | Scrolling | `page.scroll`, `dom.scroll` (inside lists and panels), `dom.scrollTo`, `dom.wheel` |
 | Showing things | `overlay.highlight/clear/toast`, `picker.start/cancel` |
 | Permissions | `permissions.request/contains/getAll` |
+| Downloads (opt-in) | `downloads.start` (waits until done), `downloads.list`, `downloads.cancel` |
+| Bookmarks (opt-in) | `bookmarks.search/list/create/update/remove` |
+| History (opt-in) | `history.search`, `history.delete` |
+| Cookies (opt-in) | `cookies.list/set/remove` |
+
+The opt-in groups reach the person's data outside any page, and each needs its own manifest permission, so no host gets them by default. Enable them by name, for example `groups: [...allBuiltinGroups, builtinGroups.cookies]` in `defineHost`, and `--groups` (or `groups`) for the manifest. Site policy still applies: cookies, downloads and bookmarks of blocked sites are refused, and `javascript:` bookmarks can't be created.
 
 Keys behave as they do in a browser:
 - Tab and Shift+Tab move focus in tab order.
