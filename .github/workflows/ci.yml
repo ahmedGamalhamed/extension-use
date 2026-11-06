@@ -20,6 +20,8 @@ jobs:
       - run: pnpm test
       - name: Check the action reference is up to date
         run: pnpm docs:actions && git diff --exit-code docs/actions.md
+      - name: Build the docs site (fails on dead links)
+        run: pnpm docs:build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 

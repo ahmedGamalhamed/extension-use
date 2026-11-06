@@ -14,6 +14,8 @@ import { inputHandlers } from "./input.js";
 import { editContent } from "./edit.js";
 
 export type { ContentContext, ContentGroup, ContentHandler } from "./context.js";
+/** Throw it from a custom content action to fail with a specific code. */
+export { ExtensionUseError } from "@extension-use/protocol";
 export { roleOf, nameOf, isVisible } from "./aria.js";
 export { resolve as resolveLocator, findAll, describe, refFor, cssPath } from "./locator.js";
 

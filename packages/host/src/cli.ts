@@ -72,7 +72,7 @@ function vendor() {
   const copied: string[] = [];
 
   mkdirSync(extDir, { recursive: true });
-  for (const f of ["extension-use-background.js", "extension-use-content.js", "extension-use-frame.js", "extension-use-ui.js"]) {
+  for (const f of ["extension-use-background.js", "extension-use-content.js", "extension-use-frame.js", "extension-use-ui.js", "extension-use-offscreen.js"]) {
     const src = join(hostDir, f);
     if (!existsSync(src)) throw new Error(`Missing ${src}. Is @extension-use/host built?`);
     copyFileSync(src, join(extDir, f));

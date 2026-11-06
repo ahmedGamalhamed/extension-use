@@ -11,6 +11,10 @@
     "example:build": "node examples/basic-extension/build.mjs && node examples/controller-app/build.mjs",
     "example:serve": "node examples/controller-app/serve.mjs",
     "docs:actions": "node scripts/gen-actions-doc.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:deploy": "pnpm docs:build && wrangler deploy --config docs/wrangler.jsonc",
     "changeset": "changeset",
     "release": "pnpm build && changeset publish"
   },
@@ -27,6 +31,7 @@
     "esbuild": "^0.25.12",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
+    "vitepress": "1.6.4",
     "vitest": "^3.2.4"
   },
   "pnpm": {

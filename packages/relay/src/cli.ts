@@ -21,7 +21,8 @@ const flag = (name: string) => {
   return i >= 0 ? argv[i + 1] : undefined;
 };
 const positional = argv.filter((a, i) => !a.startsWith("--") && !(i > 0 && argv[i - 1]!.startsWith("--") && !["--no-prompt"].includes(argv[i - 1]!)));
-const [command = "serve", sub, arg] = positional;
+const wantsHelp = argv.includes("--help") || argv.includes("-h");
+const [command = wantsHelp ? "help" : "serve", sub, arg] = positional;
 
 const port = Number(flag("port") ?? process.env.EXTENSION_USE_RELAY_PORT ?? 7777);
 const host = flag("host") ?? "127.0.0.1";
@@ -156,7 +157,21 @@ async function main() {
     }
     case "help":
     case "--help":
-      return console.log("Commands: serve (default), token create|list|revoke, devices, unpair <id>, approve <code>, owner-token");
+      return console.log(`Usage: extension-use-relay [command] [options]
+
+Commands:
+  serve (default)                      Start the relay
+  token create <name> [--grants a,b]   Create a controller token (shown once)
+  token list | token revoke <name>     List or revoke tokens
+  devices | unpair <deviceId>          List or remove paired browsers
+  approve <code>                       Approve a pairing request
+  owner-token                          Print the owner token
+
+Options:
+  --port <n>      Port (default 7777, or EXTENSION_USE_RELAY_PORT)
+  --host <host>   Address to listen on (default 127.0.0.1)
+  --data <file>   Data file (default ~/.extension-use/relay.json, or EXTENSION_USE_RELAY_DATA)
+  --no-prompt     Don't ask to confirm pairing codes in the terminal`);
     default:
       die(`Unknown command "${command}". Try --help.`);
   }

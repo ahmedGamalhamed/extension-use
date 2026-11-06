@@ -26,7 +26,9 @@ It asks for a template and the URL of your web app. It then creates an extension
 | `plain` | TypeScript bundled with esbuild, no framework. See the [plain JS/TS guide](docs/guides/plain.md). |
 | `vanilla` | Plain JavaScript with **no build step**: prebuilt bundles copied in by `npm install`. See the [plain JS/TS guide](docs/guides/plain.md). |
 
-Docs: [action reference](docs/actions.md) · [recipes](docs/recipes.md) · [remote control](docs/guides/remote.md) · [AI agents](docs/guides/agents.md) · [testing](docs/guides/testing.md) · [design](docs/design.md)
+**Documentation: [extension-use.appzlr.com](https://extension-use.appzlr.com)**, with a [package picker](https://extension-use.appzlr.com/start/picker) that writes the setup for your extension.
+
+In the repo: [action reference](docs/actions.md) · [recipes](docs/recipes.md) · [remote control](docs/guides/remote.md) · [AI agents](docs/guides/agents.md) · [testing](docs/guides/testing.md) · [design](docs/design.md)
 
 ## Drive your browser from a script
 

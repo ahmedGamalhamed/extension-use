@@ -57,6 +57,9 @@ function fieldsTable(schema) {
   return `| Field | Type | Required | Notes |\n|---|---|---|---|\n${rows.join("\n")}\n`;
 }
 
+// Descriptions mention tags like <select>: escape them so GitHub and the docs site show them as text.
+const escapeHtml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 const toJson = (s, io) => z.toJSONSchema(s, { io, unrepresentable: "any", reused: "inline" });
 
 let md = `# Action reference
@@ -78,7 +81,7 @@ md += `## Contents\n\n${Object.entries(groups).map(([g, list]) => `- **${g}**: $
 for (const [group, list] of Object.entries(groups)) {
   md += `## ${group}\n\n`;
   for (const [name, s] of list) {
-    md += `### \`${name}\`\n\n${s.description}\n\nRuns in ${WHERE[s.where]}.${s.timeoutMs ? ` Default timeout ${s.timeoutMs / 1000} s.` : ""}\n\n**Input**\n\n${fieldsTable(toJson(s.input, "input"))}\n**Output**\n\n${fieldsTable(toJson(s.output, "output"))}\n`;
+    md += `### \`${name}\`\n\n${escapeHtml(s.description)}\n\nRuns in ${WHERE[s.where]}.${s.timeoutMs ? ` Default timeout ${s.timeoutMs / 1000} s.` : ""}\n\n**Input**\n\n${fieldsTable(toJson(s.input, "input"))}\n**Output**\n\n${fieldsTable(toJson(s.output, "output"))}\n`;
   }
 }
 

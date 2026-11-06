@@ -13,6 +13,9 @@ import { configureTabCapture } from "./tab-capture.js";
 import { createRouter, type AuditEntry, type Policy } from "./router.js";
 
 export { builtinGroups, allBuiltinGroups, OPT_IN_GROUPS } from "./groups.js";
+/** Throw it from a custom action to fail with a specific code. */
+export { ExtensionUseError } from "@extension-use/protocol";
+export type { ErrorCode } from "@extension-use/protocol";
 export { createRemoteLink, type RemoteLink, type RemoteLinkOptions, type RemoteState } from "./remote-link.js";
 export type { RemoteConfig, RemoteUiState, PairingState } from "./remote.js";
 export type { UiCommand, UiState } from "../wire.js";

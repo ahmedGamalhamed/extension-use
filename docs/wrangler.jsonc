@@ -1,0 +1,14 @@
+// The docs site: a Cloudflare Worker that only serves the static VitePress build.
+//   pnpm docs:deploy
+{
+  "name": "extension-use-docs",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./.vitepress/dist",
+    // cleanUrls: /start/picker serves start/picker.html
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "extension-use.appzlr.com", "custom_domain": true }],
+  "workers_dev": false
+}

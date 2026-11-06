@@ -790,7 +790,7 @@ Runs in the page (content runtime).
 
 ### `dom.select`
 
-Choose options in a <select> by value or label.
+Choose options in a &lt;select&gt; by value or label.
 
 Runs in the page (content runtime).
 
@@ -889,7 +889,7 @@ Runs in the page (content runtime).
 
 ### `dom.upload`
 
-Give files to an <input type=file>, or drop them on a drop zone. Content is base64 (or text).
+Give files to an &lt;input type=file&gt;, or drop them on a drop zone. Content is base64 (or text).
 
 Runs in the page (content runtime). Default timeout 30 s.
 
