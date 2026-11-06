@@ -3,7 +3,8 @@
  *
  * A ready-made control panel for an extension page (options page, popup, or a
  * tab in your side panel): pair with a relay, see who is connected, pause all
- * control, and review recent activity.
+ * control, connect a coding agent on this computer, and review recent
+ * activity.
  *
  *   import { mountControlPanel } from "@extension-use/host/ui";
  *   mountControlPanel(document.getElementById("panel")!);
@@ -40,6 +41,7 @@ li:first-child { border-top: 0; }
 .pill { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
 select, textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
 textarea { font: 12px/1.4 ui-monospace, monospace; min-height: 90px; resize: vertical; }
+textarea.instructions { min-height: 150px; }
 pre { white-space: pre-wrap; word-break: break-word; font: 12px/1.4 ui-monospace, monospace; max-height: 320px; overflow: auto; margin: 6px 0 0; }
 label { display: block; color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
 `;
@@ -56,6 +58,8 @@ export function mountControlPanel(container: HTMLElement, options: ControlPanelO
   let state: UiState | undefined;
   let relayDraft: string | undefined;
   let nameDraft = options.deviceName ?? defaultDeviceName();
+  let copiedAt = 0;
+  let confirmNewKey = false;
 
   const send = (cmd: UiCommand) => port?.postMessage(cmd);
 
@@ -136,6 +140,9 @@ export function mountControlPanel(container: HTMLElement, options: ControlPanelO
       parts.push(el("section", {}, ...remoteParts.filter(Boolean)));
     }
 
+    // Local agents
+    if (s.agent) parts.push(agentSection(s.agent));
+
     // Sessions
     parts.push(
       el(
@@ -168,6 +175,67 @@ export function mountControlPanel(container: HTMLElement, options: ControlPanelO
 
     if (s.error) parts.unshift(el("p", { class: "err" }, s.error));
     view.replaceChildren(...parts);
+  }
+
+  function agentSection(a: NonNullable<UiState["agent"]>) {
+    const dot = !a.enabled ? "" : a.agents.length ? "on" : "busy";
+    const status = !a.enabled ? "Off" : a.agents.length ? `Connected: ${a.agents.join(", ")}` : "Waiting for an agent";
+    const head = el("h2", {}, el("span", {}, el("span", { class: `dot ${dot}` }), "AI agent on this computer"), el("span", { class: "muted" }, status));
+    if (!a.enabled || !a.instructions) {
+      return el(
+        "section",
+        {},
+        head,
+        el("p", { class: "muted" }, "Let a coding agent or a local model use this browser. You paste one set of instructions into it; there's nothing else to install or run."),
+        el("div", { class: "row" }, button("Connect an agent", () => send({ cmd: "agent-enable" }), "primary")),
+      );
+    }
+    const box = el("textarea", { class: "instructions", readOnly: true, value: a.instructions, spellcheck: false } as Partial<HTMLTextAreaElement>);
+    box.setAttribute("aria-label", "Instructions for your agent");
+    const copy = () => {
+      box.select();
+      void navigator.clipboard.writeText(a.instructions!).then(
+        () => {
+          copiedAt = Date.now();
+          render();
+          setTimeout(render, 2000);
+        },
+        () => document.execCommand?.("copy"),
+      );
+    };
+    const copied = Date.now() - copiedAt < 2000;
+    return el(
+      "section",
+      {},
+      head,
+      el("p", {}, "Paste this into your agent (Claude Code, Cursor, a local model with MCP…). It starts a small server on this computer, and this browser connects to it by itself."),
+      box,
+      el(
+        "div",
+        { class: "row spaced" },
+        button(copied ? "Copied" : "Copy instructions", copy, "primary"),
+        confirmNewKey
+          ? button("Yes, disconnect them and make a new key", () => {
+              confirmNewKey = false;
+              send({ cmd: "agent-enable" });
+            }, "danger")
+          : button("New key", () => {
+              confirmNewKey = true;
+              render();
+            }),
+        button("Turn off", () => {
+          confirmNewKey = false;
+          send({ cmd: "agent-disable" });
+        }, "danger"),
+      ),
+      el(
+        "p",
+        { class: "muted" },
+        confirmNewKey
+          ? "Agents using the current instructions will be disconnected and need the new ones."
+          : "The key in these instructions lets programs on this computer control this browser. Only this computer can use it. \"New key\" revokes it.",
+      ),
+    );
   }
 
   function buildPlayground() {

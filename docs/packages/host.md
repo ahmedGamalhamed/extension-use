@@ -38,6 +38,7 @@ const router = defineHost({
 | `controllers.frame` | `{ origins, grants? }`: web apps in an iframe inside an extension page. |
 | `controllers.page` | `{ origins, grants? }`: websites that connect through `externally_connectable`. |
 | `controllers.remote` | `{ grants?, relays? }`: scripts and agents through a relay. Needs the `storage` and `alarms` permissions. `relays` defaults to localhost and any `https://` relay. |
+| `controllers.agent` | `{ grants?, ports?, serverName? }`: a coding agent or local model on this computer, with no relay. The person clicks **Connect an agent** in the control panel and pastes the instructions into their agent. Needs the `storage` and `alarms` permissions. See the [AI agents guide](../guides/agents.md). |
 | `groups` | Built-in groups to enable. Default `allBuiltinGroups` (all but the opt-in ones). See [permissions](../guides/permissions.md). |
 | `actions` | Your own actions, made with `defineAction()`. See [custom actions](../guides/custom-actions.md). |
 | `policy` | `{ blockedSites?, sensitiveFields? }`. See [security](../guides/security.md#site-policy). |

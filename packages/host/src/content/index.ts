@@ -74,9 +74,9 @@ export function startContentRuntime(options: ContentRuntimeOptions = {}) {
     }
 
     // Visible control: the person should always see when something else acts on the page.
-    if (req.controller && (req.controller.transport === "remote" || req.controller.transport === "page") && options.indicator !== false) {
+    if (req.controller && ["remote", "agent", "page"].includes(req.controller.transport) && options.indicator !== false) {
       try {
-        showControlIndicator(`Controlled by ${req.controller.origin.replace(/^relay:/, "remote: ")}`);
+        showControlIndicator(`Controlled by ${req.controller.origin.replace(/^relay:/, "remote: ").replace(/^agent:/, "agent: ")}`);
       } catch {
         /* the page may not allow our overlay; the toolbar badge still shows it */
       }

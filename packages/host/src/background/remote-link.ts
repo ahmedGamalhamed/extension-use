@@ -3,7 +3,7 @@
  * outbound WebSocket, controller sessions multiplexed on it, keep-alive pings
  * and reconnects. Chrome wiring (storage, alarms, pairing UI) is in remote.ts.
  */
-import { REMOTE_PING_MS, isDeviceFrame, type DeviceFrame } from "@extension-use/protocol/remote";
+import { REMOTE_PING_MS, agentKeyId, agentNonce, agentProof, isDeviceFrame, sameProof, type DeviceFrame } from "@extension-use/protocol/remote";
 import type { Connection, Router } from "./router.js";
 
 export type RemoteStatus = "disconnected" | "connecting" | "connected" | "unauthorized";
@@ -20,7 +20,18 @@ export interface RemoteState {
 export interface RemoteLinkOptions {
   /** Relay base URL, e.g. "http://127.0.0.1:7777". */
   relay: string;
-  deviceToken: string;
+  /** Full WebSocket URL, when it isn't `<relay>/v1/device` (a local agent link). */
+  url?: string;
+  /** Device token from pairing. Ignored when `agentKey` is set. */
+  deviceToken?: string;
+  /**
+   * Authenticate with the local agent handshake instead of a device token:
+   * both sides prove they know this key, and nothing is accepted before the
+   * other side's proof checks out.
+   */
+  agentKey?: string;
+  /** Transport name sessions get in the router. Default "remote". */
+  transport?: string;
   router: Router;
   /** Action patterns remote controllers may call (the relay may narrow them further per token). */
   grants: string[];
@@ -70,7 +81,7 @@ export function createRemoteLink(opts: RemoteLinkOptions) {
         break;
       case "open": {
         const conn = opts.router.connect({
-          transport: "remote",
+          transport: opts.transport ?? "remote",
           origin: frame.origin,
           grants: opts.grants,
           send: (env) => send({ t: "msg", s: frame.s, env }),
@@ -107,26 +118,56 @@ export function createRemoteLink(opts: RemoteLinkOptions) {
     setState({ status: "connecting" });
     let socket: WebSocket;
     try {
-      socket = new WS(wsUrl(opts.relay));
+      socket = new WS(opts.url ?? wsUrl(opts.relay));
     } catch (e) {
       setState({ status: "disconnected", error: String(e) });
       schedule();
       return;
     }
     ws = socket;
+    const key = opts.agentKey;
+    // With an agent key, the other side is unproven until its challenge checks out.
+    let trusted = !key;
+    let ourNonce: string | undefined;
     socket.addEventListener("open", () => {
-      socket.send(JSON.stringify({ t: "auth", token: opts.deviceToken, client: { name: "extension" } } satisfies DeviceFrame));
+      if (key) {
+        ourNonce = agentNonce();
+        socket.send(JSON.stringify({ t: "agent-hello", nonce: ourNonce } satisfies DeviceFrame));
+      } else {
+        socket.send(JSON.stringify({ t: "auth", token: opts.deviceToken ?? "", client: { name: "extension" } } satisfies DeviceFrame));
+      }
       clearInterval(ping);
       // Traffic every < 30 s keeps an MV3 service worker alive while connected.
       ping = setInterval(() => send({ t: "ping" }), REMOTE_PING_MS);
     });
-    socket.addEventListener("message", (e: MessageEvent) => {
-      try {
-        const frame = JSON.parse(String(e.data));
-        if (isDeviceFrame(frame)) onFrame(frame);
-      } catch {
-        /* ignore */
+    const verify = async (frame: DeviceFrame) => {
+      if (frame.t !== "agent-challenge" || !key || !ourNonce || typeof frame.nonce !== "string" || frame.nonce.length < 16) return socket.close();
+      const ok = frame.keyId === (await agentKeyId(key)) && sameProof(frame.proof, await agentProof(key, "mcp", ourNonce, frame.nonce));
+      if (!ok) {
+        setState({ error: "An agent on this computer uses a different key" });
+        return socket.close();
       }
+      trusted = true;
+      if (socket.readyState === 1) socket.send(JSON.stringify({ t: "agent-proof", proof: await agentProof(key, "extension", frame.nonce, ourNonce) } satisfies DeviceFrame));
+    };
+    let pending = Promise.resolve();
+    socket.addEventListener("message", (e: MessageEvent) => {
+      let frame: unknown;
+      try {
+        frame = JSON.parse(String(e.data));
+      } catch {
+        return;
+      }
+      if (!isDeviceFrame(frame)) return;
+      const f = frame;
+      // Keep frames in order while the proof is checked (Web Crypto is async).
+      pending = pending.then(() => {
+        if (ws !== socket) return;
+        if (trusted) return onFrame(f);
+        if (f.t === "agent-challenge") return verify(f);
+        // Anything else before the proof (ready, open, msg...) is refused.
+        socket.close();
+      }).catch(() => socket.close());
     });
     socket.addEventListener("close", () => {
       if (ws !== socket) return;

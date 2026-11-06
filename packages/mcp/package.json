@@ -1,7 +1,7 @@
 {
   "name": "@extension-use/mcp",
   "version": "0.1.0",
-  "description": "MCP server that lets AI agents use your real browser through an Extension-use relay",
+  "description": "MCP server that lets AI agents use your real browser, locally or through an Extension-use relay",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -25,11 +25,13 @@
   "dependencies": {
     "@extension-use/client": "workspace:*",
     "@extension-use/protocol": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.32.2"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@extension-use/host": "workspace:*",
-    "@extension-use/relay": "workspace:*"
+    "@extension-use/relay": "workspace:*",
+    "@types/ws": "^8.18.1"
   },
   "keywords": ["mcp", "model-context-protocol", "ai-agent", "browser-automation", "browser-extension", "extension-use"]
 }

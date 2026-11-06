@@ -21,6 +21,8 @@ export type UiCommand =
   | { cmd: "cancel-pairing" }
   | { cmd: "unpair" }
   | { cmd: "reconnect" }
+  | { cmd: "agent-enable" }
+  | { cmd: "agent-disable" }
   | { cmd: "describe" }
   | { cmd: "call"; id: string; action: string; input: unknown; target?: import("@extension-use/protocol").Target };
 
@@ -37,6 +39,8 @@ export interface UiState {
   audit: { ts: number; transport: string; origin: string; action: string; ok: boolean; code?: string; ms: number }[];
   /** Undefined when the host has no `controllers.remote`. */
   remote?: import("./background/remote.js").RemoteUiState;
+  /** Undefined when the host has no `controllers.agent`. */
+  agent?: import("./background/agent.js").AgentUiState;
   error?: string;
 }
 

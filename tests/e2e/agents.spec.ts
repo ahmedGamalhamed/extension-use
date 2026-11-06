@@ -2,7 +2,7 @@ import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { connect } from "@extension-use/client";
 import { remote } from "@extension-use/client/remote";
-import { createExtensionUseMcpServer } from "@extension-use/mcp";
+import { createExtensionUseMcpServer, listenForBrowser } from "@extension-use/mcp";
 import { createRelay } from "@extension-use/relay";
 import { FIXTURE_TARGET, expect, pairThroughControlPanel, test } from "./fixtures.js";
 
@@ -65,6 +65,40 @@ test("an MCP agent reads and drives the real browser through the relay", async (
     await mcp.close();
     await close();
     await relay.close();
+  }
+});
+
+test("an agent connects with only the instructions from the control panel, no relay", async ({ context, extensionId, fixture }) => {
+  test.setTimeout(60_000);
+  const control = await context.newPage();
+  await control.goto(`chrome-extension://${extensionId}/control.html`);
+  await control.getByRole("button", { name: "Connect an agent" }).click();
+  const instructions = await control.getByLabel("Instructions for your agent").inputValue();
+  const key = /"EXTENSION_USE_AGENT_KEY": "(eu_agent_[\w-]+)"/.exec(instructions)![1]!;
+
+  // What `npx -y @extension-use/mcp` does with that key: listen locally, wait for the browser.
+  const local = await listenForBrowser({ key });
+  const { server, close } = createExtensionUseMcpServer({ connect: () => connect(local.transport({ label: "e2e-agent", waitMs: 30_000 })) });
+  const [a, b] = InMemoryTransport.createLinkedPair();
+  await server.connect(a);
+  const mcp = new McpClient({ name: "e2e-agent", version: "1.0.0" });
+  await mcp.connect(b);
+  try {
+    const snap = textOf(await mcp.callTool({ name: "dom_snapshot", arguments: { target: FIXTURE_TARGET } }));
+    expect(snap).toContain('heading "Order form" [level=1]');
+    const emailRef = /textbox "Email" \[ref=(e\d+)\]/.exec(snap)![1];
+    await mcp.callTool({ name: "dom_fill", arguments: { locator: { ref: emailRef }, value: "local@example.com", target: FIXTURE_TARGET } });
+    await expect(fixture.locator("#email")).toHaveValue("local@example.com");
+
+    // The panel shows the agent by name, and turning it off disconnects it.
+    await expect(control.getByText("Connected: e2e-agent")).toBeVisible();
+    await control.getByRole("button", { name: "Turn off" }).click();
+    await expect.poll(() => local.connected).toBe(false);
+    await expect(control.getByRole("button", { name: "Connect an agent" })).toBeVisible();
+  } finally {
+    await mcp.close();
+    await close();
+    await local.close();
   }
 });
 

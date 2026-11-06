@@ -12,6 +12,8 @@ defineHost({
     page: { origins: [CONTROLLER_ORIGIN], grants: ["runtime.*", "tabs.*", "page.*", "dom.query", "dom.text", "dom.snapshot", "overlay.*"] },
     // Scripts and agents through a relay the person pairs with in control.html.
     remote: {},
+    // Coding agents and local models on this computer, no relay: "Connect an agent" in control.html.
+    agent: {},
   },
   // The defaults plus the opt-in groups: tabCapture keeps background tabs rendering
   // and screenshots them; the browser-data groups reach downloads, bookmarks,

@@ -98,6 +98,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@4.6.7)
+      ws:
+        specifier: ^8.18.3
+        version: 8.22.1
     devDependencies:
       '@extension-use/host':
         specifier: workspace:*
@@ -105,6 +108,9 @@ importers:
       '@extension-use/relay':
         specifier: workspace:*
         version: link:../relay
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.2
 
   packages/protocol:
     dependencies:

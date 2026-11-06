@@ -9,6 +9,7 @@ import { CONTENT_MESSAGE, CONTENT_EVENT, CONTENT_CANCEL, FRAME_PORT, UI_PORT, ty
 import { envelope, randomId as newId, type ResultEnvelope } from "@extension-use/protocol";
 import { allBuiltinGroups, waitForLoad } from "./groups.js";
 import { setupRemote, type RemoteConfig } from "./remote.js";
+import { setupAgent, type AgentConfig } from "./agent.js";
 import { configureTabCapture } from "./tab-capture.js";
 import { createRouter, type AuditEntry, type Policy } from "./router.js";
 
@@ -18,6 +19,7 @@ export { ExtensionUseError } from "@extension-use/protocol";
 export type { ErrorCode } from "@extension-use/protocol";
 export { createRemoteLink, type RemoteLink, type RemoteLinkOptions, type RemoteState } from "./remote-link.js";
 export type { RemoteConfig, RemoteUiState, PairingState } from "./remote.js";
+export { agentInstructions, type AgentConfig, type AgentUiState } from "./agent.js";
 export type { UiCommand, UiState } from "../wire.js";
 export { createRouter, ALWAYS_BLOCKED, SDK_VERSION } from "./router.js";
 export type { Router, RouterEnv, RouterOptions, Channel, Connection, AuditEntry, Policy, ContentRequest } from "./router.js";
@@ -50,6 +52,12 @@ export interface HostOptions {
      * person paired with (in the control panel). Needs "storage" and "alarms".
      */
     remote?: RemoteConfig;
+    /**
+     * Coding agents and local models on this computer, with no relay: the
+     * person clicks "Connect an agent" in the control panel and pastes the
+     * instructions into their agent. Needs "storage" and "alarms".
+     */
+    agent?: AgentConfig;
   };
   /** Show control state on the toolbar icon (needs an `action` in the manifest). Default true. */
   badge?: boolean;
@@ -218,6 +226,7 @@ export function defineHost(options: HostOptions) {
 
   const log = (...a: unknown[]) => options.debug && console.debug("[extension-use]", ...a);
   const remote = options.controllers.remote ? setupRemote(router, options.controllers.remote, () => refresh(), log) : undefined;
+  const agent = options.controllers.agent ? setupAgent(router, options.controllers.agent, options.name, () => refresh(), log) : undefined;
   const uiPorts = new Set<chrome.runtime.Port>();
   let refreshQueued = false;
 
@@ -241,6 +250,7 @@ export function defineHost(options: HostOptions) {
       sessions: router.sessions().map((s) => ({ id: s.id, transport: s.transport, origin: s.origin })),
       audit: router.audit().slice(-30).reverse(),
       ...(remote ? { remote: remote.state() } : {}),
+      ...(agent ? { agent: agent.state() } : {}),
     };
   }
 
@@ -257,7 +267,7 @@ export function defineHost(options: HostOptions) {
 
   function updateBadge(state: UiState) {
     if (options.badge === false || !chrome.action?.setBadgeText) return;
-    const external = state.sessions.filter((s) => s.transport === "remote" || s.transport === "page");
+    const external = state.sessions.filter((s) => s.transport === "remote" || s.transport === "agent" || s.transport === "page");
     const [text, color, title] = state.paused
       ? ["II", "#6b7280", "Control paused"]
       : external.length
@@ -323,6 +333,13 @@ export function defineHost(options: HostOptions) {
             break;
           case "reconnect":
             remote?.reconnect();
+            break;
+          case "agent-enable":
+            if (!agent) throw new Error("Agents are not enabled in this extension");
+            await agent.enable();
+            break;
+          case "agent-disable":
+            await agent?.disable();
             break;
           case "describe": {
             const r = await uiCall("runtime.describe", {});

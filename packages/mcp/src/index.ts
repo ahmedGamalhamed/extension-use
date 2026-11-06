@@ -12,10 +12,14 @@ import type { Client } from "@extension-use/client";
 import { ExtensionUseError } from "@extension-use/protocol";
 
 export const MCP_VERSION = "0.1.0";
+export { listenForBrowser, type LocalAgentOptions, type LocalAgentLink } from "./local.js";
 
 export interface ExtensionUseMcpOptions {
-  /** Returns a connected client (for example `connect(remote({ relay, token }))`). Called again after a disconnect. */
-  connect(): Promise<Client>;
+  /**
+   * Returns a connected client (for example `connect(remote({ relay, token }))`). Called again after a disconnect.
+   * `purpose` says why: "list" (listing tools, so don't wait long for a browser) or "call" (a tool call).
+   */
+  connect(context?: { purpose: "list" | "call" }): Promise<Client>;
   /** Only expose these actions (patterns like "dom.*"). Default: everything the token allows. */
   include?: string[];
   /** Hide these actions. Default: none. */
@@ -61,10 +65,10 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
   let connecting: Promise<Client> | undefined;
   let described: { at: number; actions: Described[] } | undefined;
 
-  async function ext(): Promise<Client> {
+  async function ext(purpose: "list" | "call"): Promise<Client> {
     if (client?.connected) return client;
     connecting ??= options
-      .connect()
+      .connect({ purpose })
       .then((c) => {
         client = c;
         described = undefined;
@@ -77,9 +81,9 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
     return connecting;
   }
 
-  async function describe(): Promise<Described[]> {
+  async function describe(purpose: "list" | "call"): Promise<Described[]> {
     if (described && Date.now() - described.at < 60_000) return described.actions;
-    const c = await ext();
+    const c = await ext(purpose);
     const out = (await c.callRaw("runtime.describe", {}, { timeoutMs: 10_000 })) as { actions: Described[] };
     // c.has() also checks the welcome's capabilities, which the relay narrows to the token.
     const actions = out.actions.filter(
@@ -89,12 +93,12 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
     return actions;
   }
 
-  const server = new Server({ name: options.name ?? "extension-use", version: MCP_VERSION }, { capabilities: { tools: { listChanged: false } }, instructions: INSTRUCTIONS });
+  const server = new Server({ name: options.name ?? "extension-use", version: MCP_VERSION }, { capabilities: { tools: { listChanged: true } }, instructions: INSTRUCTIONS });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     let actions: Described[];
     try {
-      actions = await describe();
+      actions = await describe("list");
     } catch (err) {
       // No browser yet: offer a status tool that explains how to connect.
       const e = ExtensionUseError.from(err);
@@ -102,7 +106,7 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
         tools: [
           {
             name: "browser_status",
-            description: `The browser is not connected (${e.code}: ${e.message}). Call this tool to check again after the user pairs a browser with the relay.`,
+            description: `The browser is not connected (${e.code}: ${e.message}). Call this tool to check again once the user has connected the browser.`,
             inputSchema: { type: "object", properties: {} },
           },
         ],
@@ -130,10 +134,10 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
     const args = { ...(req.params.arguments ?? {}) } as Record<string, unknown>;
     try {
       if (name === "browser_status") {
-        const c = await ext();
+        const c = await ext("call");
         return text(`Connected to "${c.host.name ?? c.host.id}" with ${c.capabilities.length} actions. List the tools again to see them.`);
       }
-      const actions = await describe();
+      const actions = await describe("call");
       const action = actions.find((a) => toolName(a.name) === name)?.name;
       if (!action) return error("UNKNOWN_ACTION", `No tool "${name}". List the tools again; the browser's actions may have changed.`);
 
@@ -145,7 +149,7 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
       }
       // Whole pages of HTML swamp a model's context; ask for more when needed.
       if (action === "dom.html") input.maxLength ??= 50_000;
-      const c = await ext();
+      const c = await ext("call");
       const output = await c.callRaw(action, input, {
         ...(target ? { target: target as never } : {}),
         ...(typeof timeoutMs === "number" ? { timeoutMs } : {}),
@@ -159,6 +163,11 @@ export function createExtensionUseMcpServer(options: ExtensionUseMcpOptions) {
 
   return {
     server,
+    /** Tell the MCP client to list the tools again, e.g. after a browser connects. */
+    notifyToolsChanged() {
+      described = undefined;
+      server.sendToolListChanged().catch(() => {});
+    },
     async close() {
       client?.close();
       await server.close();
