@@ -98,30 +98,80 @@ export function mountFrameBridge(options: FrameBridgeOptions): FrameBridge {
   const bridgeActions = options.bridgeActions === false ? {} : BRIDGE_ACTIONS;
   let granted: string[] = [];
 
+  // The background is an MV3 service worker that Chrome stops when idle, which
+  // drops the port. The app has no idea, so the bridge keeps what it needs to
+  // resume the session on a new port: the app's hello and its subscriptions.
+  let clientHello: Envelope | undefined;
+  const subscriptions = new Set<string>();
+  // Calls sent to the background that have no result yet. They fail fast when the
+  // port drops; they are never re-sent, since actions like clicks are not idempotent.
+  const inflight = new Set<string>();
+
   const toFrame = (env: unknown, origin: string) => {
     log("→ frame", env);
     iframe.contentWindow?.postMessage(env, origin);
   };
 
-  function openPort(origin: string) {
+  /** Open a port to the background. With `resume`, replay the app's hello and subscriptions on it. */
+  function openPort(origin: string, resume: boolean) {
     port?.disconnect();
-    const p = chrome.runtime.connect({ name: FRAME_PORT });
+    let p: chrome.runtime.Port;
+    try {
+      p = chrome.runtime.connect({ name: FRAME_PORT });
+    } catch (err) {
+      // The extension was reloaded or updated: this page is orphaned until it reloads.
+      log("could not connect", err);
+      port = undefined;
+      return;
+    }
     const hello: BridgeHello = { type: "bridge-hello", origin, ...(windowId !== undefined ? { windowId } : {}) };
     p.postMessage(hello);
+    let welcomed = false;
+    // The app already has a welcome; the one for a resumed session stays here.
+    let swallowWelcome = resume;
     p.onMessage.addListener((env: Envelope) => {
       if (env?.kind === "welcome") {
+        welcomed = true;
         granted = env.granted;
+        if (swallowWelcome) {
+          swallowWelcome = false;
+          log("resumed session", env.session);
+          return;
+        }
         const extra = Object.keys(bridgeActions)
           .filter((a) => matchAny(granted, a))
           .map((action) => ({ action, version: 1, where: "bridge" as const }));
         env = { ...env, capabilities: [...env.capabilities, ...extra] };
+      } else if (env?.kind === "result") {
+        inflight.delete(env.id);
+      } else if (env?.kind === "bye") {
+        // The session is over for the app too: don't resume it.
+        clientHello = undefined;
+        subscriptions.clear();
       }
       toFrame(env, origin);
     });
     p.onDisconnect.addListener(() => {
-      if (port === p) port = undefined;
+      void chrome.runtime.lastError; // read it so Chrome doesn't log it as unchecked
+      if (port !== p) return;
+      port = undefined;
+      log("port closed");
+      for (const id of inflight) {
+        toFrame(
+          envelope({ kind: "result", id, ok: false, error: { code: "NOT_CONNECTED", message: "The extension's background restarted during this call. Try again." } }),
+          origin,
+        );
+      }
+      inflight.clear();
+      // Events only reach a live session, so resume now if the app listens for any.
+      // Only after a session was really running, so a refused port can't loop.
+      if (welcomed && clientHello && subscriptions.size) openPort(origin, true);
     });
     port = p;
+    if (resume && clientHello) {
+      p.postMessage(clientHello);
+      if (subscriptions.size) p.postMessage(envelope({ kind: "subscribe", events: [...subscriptions] }));
+    }
   }
 
   // Messages are handled one after another so the first await can't reorder them.
@@ -140,17 +190,33 @@ export function mountFrameBridge(options: FrameBridgeOptions): FrameBridge {
     loaded = true;
     queue = queue.then(async () => {
       log("← frame", data);
-      // A hello means a (re)started client: give it a fresh session and pin its origin.
-      if (data.kind === "hello" || !port || frameOrigin !== origin) {
-        await windowReady;
+      await windowReady;
+      if (data.kind === "hello" || frameOrigin !== origin) {
+        // A (re)started client, or the frame navigated to another allowed app:
+        // start a fresh session pinned to this origin, with nothing to resume.
         frameOrigin = origin;
-        openPort(origin);
+        clientHello = data.kind === "hello" ? data : undefined;
+        subscriptions.clear();
+        inflight.clear(); // a restarted client already failed its own pending calls
+        openPort(origin, false);
+      } else if (!port) {
+        // The background stopped since the last message: resume the app's session.
+        openPort(origin, true);
       }
       if (data.kind === "call" && Object.hasOwn(bridgeActions, data.action)) {
         void runBridgeAction(data, userActive).then((result) => toFrame(result, origin));
         return;
       }
-      port!.postMessage(data);
+      if (data.kind === "subscribe") for (const e of data.events) subscriptions.add(e);
+      else if (data.kind === "unsubscribe") for (const e of data.events) subscriptions.delete(e);
+      if (!port) {
+        if (data.kind === "call") {
+          toFrame(envelope({ kind: "result", id: data.id, ok: false, error: { code: "NOT_CONNECTED", message: "The extension was reloaded. Reopen this panel." } }), origin);
+        }
+        return;
+      }
+      if (data.kind === "call") inflight.add(data.id);
+      port.postMessage(data);
     });
   };
   window.addEventListener("message", onMessage);
@@ -182,6 +248,9 @@ export function mountFrameBridge(options: FrameBridgeOptions): FrameBridge {
     reload() {
       port?.disconnect();
       port = undefined;
+      clientHello = undefined;
+      subscriptions.clear();
+      inflight.clear();
       iframe.src = options.url;
     },
     destroy() {
