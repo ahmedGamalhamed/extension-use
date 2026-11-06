@@ -12,7 +12,17 @@ pnpm docs:dev
 pnpm docs:build
 ```
 
-The site is served at [extension-use.appzlr.com](https://extension-use.appzlr.com) by a Cloudflare Worker with static assets (`docs/wrangler.jsonc`). To publish, with `wrangler` logged in:
+The site is served at [extension-use.appzlr.com](https://extension-use.appzlr.com) by a Cloudflare Worker with static assets, configured in `wrangler.jsonc` at the repository root. Cloudflare Workers Builds deploys it on every push to `main`. It's set up in the Cloudflare dashboard, not in GitHub Actions:
+
+| Setting | Value |
+|---|---|
+| Worker | `extension-use-docs` (must match `name` in `wrangler.jsonc`) |
+| Production branch | `main` |
+| Root directory | `/` |
+| Build command | `pnpm docs:build` |
+| Deploy command | `npx wrangler deploy` |
+
+To publish by hand, with `wrangler` logged in:
 
 ```bash
 pnpm docs:deploy

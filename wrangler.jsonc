@@ -1,10 +1,13 @@
-// The docs site: a Cloudflare Worker that only serves the static VitePress build.
-//   pnpm docs:deploy
+// The docs site (docs/): a Cloudflare Worker that only serves the static VitePress build.
+// Deployed by Cloudflare Workers Builds (dashboard Git integration) on pushes to main:
+//   build command:  pnpm docs:build
+//   deploy command: npx wrangler deploy
+// By hand: pnpm docs:deploy
 {
   "name": "extension-use-docs",
   "compatibility_date": "2026-11-01",
   "assets": {
-    "directory": "./.vitepress/dist",
+    "directory": "./docs/.vitepress/dist",
     // cleanUrls: /start/picker serves start/picker.html
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
