@@ -1,6 +1,6 @@
 {
   "name": "@extension-use/relay",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Relay that lets scripts, servers and agents drive a paired Extension-use extension. Run locally with npx, or self-host.",
   "license": "MIT",
   "author": "Ahmed Gamal",

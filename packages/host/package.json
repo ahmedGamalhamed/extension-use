@@ -1,6 +1,6 @@
 {
   "name": "@extension-use/host",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Run inside your extension: router, content runtime and frame bridge for Extension-use",
   "license": "MIT",
   "author": "Ahmed Gamal",

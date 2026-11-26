@@ -1,6 +1,6 @@
 {
   "name": "create-extension-use",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Create a browser extension that your web app can drive, with Extension-use",
   "license": "MIT",
   "author": "Ahmed Gamal",

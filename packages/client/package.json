@@ -1,6 +1,6 @@
 {
   "name": "@extension-use/client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed client to drive an Extension-use host from a frame, a web page or a script",
   "license": "MIT",
   "author": "Ahmed Gamal",
