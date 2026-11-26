@@ -42,7 +42,9 @@ jobs:
       - name: Publish to npm (trusted publishing)
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          npm install -g npm@latest # trusted publishing needs npm 11.5.1+
+          # Trusted publishing needs npm 11.5.1+. npm 12 rejects the --git-checks
+          # flag that pnpm 10 passes to it, so stay on 11.
+          npm install -g npm@11
           npm --version
           pnpm release
           git push origin --tags
