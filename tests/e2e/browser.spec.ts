@@ -129,7 +129,11 @@ test("capture.fullPage: scrolls, stitches, and puts the scroll back", async ({ p
   const { tabs } = await panel.call("tabs.list", {});
   await panel.call("tabs.activate", { tabId: tabs.find((t: { url: string }) => t.url === FIXTURE_URL).id });
   await fixture.bringToFront();
+  // The fixture shows #later 400 ms after load, above the spacer. If it appears
+  // after we scroll, scroll anchoring moves the page down by its height.
+  await expect(fixture.locator("#later")).toBeVisible();
   await panel.call("page.scroll", { y: 200 }, T);
+  expect((await panel.call("page.info", {}, T)).scroll.y).toBe(200);
 
   const view = await panel.call("capture.screenshot", {}, T);
   const full = await panel.call("capture.fullPage", {}, T);
