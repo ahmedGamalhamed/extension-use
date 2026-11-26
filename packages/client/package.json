@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Typed client to drive an Extension-use host from a frame, a web page or a script",
   "license": "MIT",
+  "author": "Ahmed Gamal",
+  "homepage": "https://extension-use.appzlr.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedGamalhamed/extension-use.git",
+    "directory": "packages/client"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmedGamalhamed/extension-use/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "exports": {

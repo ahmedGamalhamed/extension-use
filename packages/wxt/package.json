@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "WXT module for Extension-use: adds the manifest permissions and externally_connectable entries your host needs",
   "license": "MIT",
+  "author": "Ahmed Gamal",
+  "homepage": "https://extension-use.appzlr.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedGamalhamed/extension-use.git",
+    "directory": "packages/wxt"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmedGamalhamed/extension-use/issues"
+  },
   "type": "module",
   "exports": {
     ".": {

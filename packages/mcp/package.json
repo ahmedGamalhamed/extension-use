@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "MCP server that lets AI agents use your real browser, locally or through an Extension-use relay",
   "license": "MIT",
+  "author": "Ahmed Gamal",
+  "homepage": "https://extension-use.appzlr.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedGamalhamed/extension-use.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmedGamalhamed/extension-use/issues"
+  },
   "type": "module",
   "bin": {
     "extension-use-mcp": "./dist/cli.js"
@@ -15,7 +25,9 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -33,5 +45,12 @@
     "@extension-use/relay": "workspace:*",
     "@types/ws": "^8.18.1"
   },
-  "keywords": ["mcp", "model-context-protocol", "ai-agent", "browser-automation", "browser-extension", "extension-use"]
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "browser-automation",
+    "browser-extension",
+    "extension-use"
+  ]
 }

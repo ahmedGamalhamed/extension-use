@@ -1,0 +1,15 @@
+name: Feature request
+description: A new action, option or integration
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task, not the solution. New actions must stay declarative (no running code sent by a controller).
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help

@@ -20,7 +20,7 @@ export default defineConfig({
   base,
   cleanUrls: true,
   lastUpdated: true,
-  // design.md holds internal planning (business model, pricing). It stays in the repo, off the site.
+  // design.md is the design notes for contributors. It stays in the repo, off the site.
   srcExclude: ["design.md"],
   head: [["link", { rel: "icon", href: `${base}favicon.svg`, type: "image/svg+xml" }]],
   markdown: {

@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Test your Extension-use controllers: an in-memory mock host and Playwright fixtures for the real extension",
   "license": "MIT",
+  "author": "Ahmed Gamal",
+  "homepage": "https://extension-use.appzlr.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedGamalhamed/extension-use.git",
+    "directory": "packages/testing"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmedGamalhamed/extension-use/issues"
+  },
   "type": "module",
   "exports": {
     ".": {

@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Relay that lets scripts, servers and agents drive a paired Extension-use extension. Run locally with npx, or self-host.",
   "license": "MIT",
+  "author": "Ahmed Gamal",
+  "homepage": "https://extension-use.appzlr.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedGamalhamed/extension-use.git",
+    "directory": "packages/relay"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmedGamalhamed/extension-use/issues"
+  },
   "type": "module",
   "bin": {
     "extension-use-relay": "./dist/cli.js"

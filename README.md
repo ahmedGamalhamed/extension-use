@@ -190,9 +190,8 @@ pnpm test:e2e
 
 `test:e2e` builds the example and loads it into Playwright's Chromium (run `pnpm exec playwright install chromium` once first). Set `HEADED=1` to watch.
 
-## Repository layout and licenses
+## Contributing, security and license
 
-- `packages/`, `examples/`, `tests/`, `docs/`: the Extension-use SDK, under the MIT license (`LICENSE`).
-- `cloud/`: Extension-use Cloud, the hosted relay with accounts, metering and billing. It is **proprietary** (`cloud/LICENSE`), is not part of the MIT-licensed SDK, and is never published to npm. See `cloud/README.md`.
-
-If this repository is ever made public, move `cloud/` to a private repository first.
+- Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md).
+- Found a security problem? Please report it privately, as described in [SECURITY.md](SECURITY.md).
+- MIT licensed. See [LICENSE](LICENSE).

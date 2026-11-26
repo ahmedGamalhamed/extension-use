@@ -5,3 +5,7 @@ playwright-report/
 *.log
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+.wrangler/
+.claude/settings.local.json
+.env
+.env.*

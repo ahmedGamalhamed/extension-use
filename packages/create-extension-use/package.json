@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "Create a browser extension that your web app can drive, with Extension-use",
   "license": "MIT",
+  "author": "Ahmed Gamal",
+  "homepage": "https://extension-use.appzlr.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedGamalhamed/extension-use.git",
+    "directory": "packages/create-extension-use"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmedGamalhamed/extension-use/issues"
+  },
   "type": "module",
   "bin": {
     "create-extension-use": "./index.mjs"

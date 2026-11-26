@@ -54,7 +54,7 @@ export interface ActionGroup {
   actions: ActionDef[];
 }
 
-/** Define a host-specific action, such as `emaki.captureItems`. */
+/** Define a host-specific action, such as `shop.captureItems`. */
 export function defineAction<S extends ActionSchema>(name: string, schema: S, handler?: ActionDef<S>["handler"]): ActionDef<S> {
   if (schema.where === "background" && !handler) {
     throw new Error(`Background action "${name}" needs a handler`);
